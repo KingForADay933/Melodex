@@ -399,3 +399,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Node / Vite build output
+dist/
+dist-ssr/
+*.local

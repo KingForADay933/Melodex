@@ -2,6 +2,7 @@ import { getDiatonicChords } from '../music-theory'
 import type { MusicKey } from '../music-theory'
 import type { ChordTrackItem } from '../types/project'
 import { createId } from '../utils/id'
+import { BlueprintCard } from './ui/BlueprintCard'
 
 interface ChordTrackProps {
   musicKey: MusicKey
@@ -39,57 +40,56 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Chord track</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chord track</h2>
 
       {chords.length === 0 ? (
         <p className="text-sm text-slate-400">
           Tap a progression preset above, or add chords one at a time below.
         </p>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-2">
           {chords.map((item, index) => {
             const chord = diatonicChords[item.degree - 1]
             return (
-              <div
-                key={item.id}
-                className={`flex items-center gap-1 rounded-lg border px-1.5 py-1.5 ${
-                  activeIndex === index ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => moveChord(index, -1)}
-                  disabled={index === 0}
-                  className="px-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                  aria-label="Move chord earlier"
-                >
-                  ‹
-                </button>
-                <div className="px-1 text-center leading-tight">
-                  <div className="text-[10px] text-slate-400">{chord.roman}</div>
-                  <div className="text-sm font-semibold text-slate-800">
-                    {chord.rootName}
-                    {QUALITY_SUFFIX[chord.quality] ?? ''}
+              <BlueprintCard key={item.id} active={activeIndex === index} className="!py-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-base font-semibold text-slate-800">
+                      {chord.rootName}
+                      {QUALITY_SUFFIX[chord.quality] ?? ''}
+                    </div>
+                    <div className="text-xs text-slate-400">{chord.roman}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveChord(index, -1)}
+                      disabled={index === 0}
+                      className="rounded-md p-1.5 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+                      aria-label="Move chord earlier"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveChord(index, 1)}
+                      disabled={index === chords.length - 1}
+                      className="rounded-md p-1.5 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+                      aria-label="Move chord later"
+                    >
+                      ›
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeChord(item.id)}
+                      className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                      aria-label="Remove chord"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => moveChord(index, 1)}
-                  disabled={index === chords.length - 1}
-                  className="px-1 text-slate-400 hover:text-slate-600 disabled:opacity-30"
-                  aria-label="Move chord later"
-                >
-                  ›
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeChord(item.id)}
-                  className="ml-1 px-1 text-slate-400 hover:text-red-500"
-                  aria-label="Remove chord"
-                >
-                  ×
-                </button>
-              </div>
+              </BlueprintCard>
             )
           })}
         </div>
@@ -101,7 +101,7 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
             key={chord.degree}
             type="button"
             onClick={() => addChord(chord.degree)}
-            className="rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+            className="rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-accent hover:text-accent"
           >
             + {chord.roman}
           </button>

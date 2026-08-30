@@ -25,7 +25,7 @@ function App() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10">
       <header className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Chord Sketch</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">Melodex</h1>
         <p className="text-sm text-slate-500">
           Pick a key, tap a progression, sketch a melody, then hit play or export it as MIDI.
         </p>
@@ -48,6 +48,7 @@ function App() {
 
         <PianoRoll
           musicKey={project.key}
+          chords={project.chords}
           notes={project.melody}
           totalSteps={totalSteps}
           onChange={(melody) => setProject((p) => ({ ...p, melody }))}
@@ -57,6 +58,8 @@ function App() {
         <TransportControls
           project={project}
           isPlaying={isPlaying}
+          currentStep={currentStep}
+          totalSteps={totalSteps}
           onPlay={() => play(project)}
           onStop={stop}
           onExport={() => downloadProjectMidi(project)}
