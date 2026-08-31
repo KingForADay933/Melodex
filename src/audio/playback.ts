@@ -14,8 +14,9 @@ function midiToNoteName(midi: number): string {
  * swapped) without touching component code, and vice versa.
  */
 export class PlaybackEngine {
-  private chordSynth: Tone.PolySynth
-  private melodySynth: Tone.Synth
+  private masterBus: Tone.Compressor
+  private chordSynth: Tone.PolySynth<Tone.MonoSynth>
+  private melodySynth: Tone.MonoSynth
   private chordPart: Tone.Part | null = null
   private melodyPart: Tone.Part | null = null
 
@@ -23,8 +24,13 @@ export class PlaybackEngine {
   onStepChange: ((step: number | null) => void) | null = null
 
   constructor() {
-    this.chordSynth = new Tone.PolySynth(Tone.Synth).toDestination()
-    this.melodySynth = new Tone.Synth().toDestination()
+    // A gentle bus compressor keeps a dense chord (several PolySynth voices
+    // stacked at once) from summing into harsh, clipped peaks — without it,
+    // a 9th chord can be noticeably louder and harsher than a single note.
+    this.masterBus = new Tone.Compressor({ threshold: -18, ratio: 3, attack: 0.02, release: 0.2 }).toDestination()
+    this.chordSynth = new Tone.PolySynth(Tone.MonoSynth).connect(this.masterBus)
+    this.chordSynth.set({ volume: -4 })
+    this.melodySynth = new Tone.MonoSynth().connect(this.masterBus)
     this.melodySynth.volume.value = -6
   }
 
@@ -35,9 +41,19 @@ export class PlaybackEngine {
     if (project.chords.length === 0) return
 
     const chordPreset = INSTRUMENT_PRESETS[project.chordInstrument]
-    this.chordSynth.set({ oscillator: chordPreset.oscillator, envelope: chordPreset.envelope })
+    this.chordSynth.set({
+      oscillator: chordPreset.oscillator,
+      envelope: chordPreset.envelope,
+      filter: chordPreset.filter,
+      filterEnvelope: chordPreset.filterEnvelope,
+    })
     const melodyPreset = INSTRUMENT_PRESETS[project.melodyInstrument]
-    this.melodySynth.set({ oscillator: melodyPreset.oscillator, envelope: melodyPreset.envelope })
+    this.melodySynth.set({
+      oscillator: melodyPreset.oscillator,
+      envelope: melodyPreset.envelope,
+      filter: melodyPreset.filter,
+      filterEnvelope: melodyPreset.filterEnvelope,
+    })
 
     Tone.Transport.bpm.value = project.tempo
     const stepDuration = Tone.Time('16n').toSeconds()
@@ -99,5 +115,6 @@ export class PlaybackEngine {
     this.stop()
     this.chordSynth.dispose()
     this.melodySynth.dispose()
+    this.masterBus.dispose()
   }
 }
