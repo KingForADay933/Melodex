@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { MELODY_MAX_MIDI, MELODY_MIN_MIDI, STEPS_PER_BAR } from '../constants'
 import { getVoicedChord, isInScale, noteName } from '../music-theory'
@@ -30,6 +30,9 @@ const CELL_WIDTH = 22
 const CELL_HEIGHT = 18
 const HEADER_HEIGHT = 22
 const RESIZE_HANDLE_WIDTH = 8
+// Pointer movement (px) before a press-on-a-note is treated as a drag rather
+// than a click-to-remove.
+const DRAG_THRESHOLD_PX = 4
 
 interface ResizeState {
   noteId: string
@@ -42,6 +45,19 @@ interface ResizeState {
   previewLength: number
 }
 
+interface MoveState {
+  noteId: string
+  length: number
+  startPitch: number
+  startStep: number
+  /** Pointer position (viewport px) where the drag began. */
+  pointerStartX: number
+  pointerStartY: number
+  /** Live position while dragging — not yet committed to onChange/undo history. */
+  previewPitch: number
+  previewStartStep: number
+}
+
 /** How long a note at (pitch, startStep) can grow before hitting the next
  * note on the same pitch, or the end of the track. */
 function getMaxLength(pitch: number, startStep: number, notes: MelodyNote[], excludeNoteId: string, totalSteps: number): number {
@@ -49,6 +65,20 @@ function getMaxLength(pitch: number, startStep: number, notes: MelodyNote[], exc
     .filter((n) => n.id !== excludeNoteId && n.pitch === pitch && n.startStep > startStep)
     .reduce((min, n) => Math.min(min, n.startStep), totalSteps)
   return nextNoteStart - startStep
+}
+
+/** Drops any note on `pitch` that the (startStep, length) span would
+ * overlap, so the grid never has to represent stacked/ambiguous notes. */
+function clearOverlap(
+  notes: MelodyNote[],
+  pitch: number,
+  startStep: number,
+  length: number,
+  excludeNoteId?: string,
+): MelodyNote[] {
+  return notes.filter(
+    (n) => n.id === excludeNoteId || !(n.pitch === pitch && startStep < n.startStep + n.lengthSteps && startStep + length > n.startStep),
+  )
 }
 
 export function PianoRoll({
@@ -63,6 +93,11 @@ export function PianoRoll({
   onToggleScaleLock,
 }: PianoRollProps) {
   const [resizing, setResizing] = useState<ResizeState | null>(null)
+  const [moving, setMoving] = useState<MoveState | null>(null)
+  // Set (synchronously, ahead of React state) as soon as a press-on-a-note
+  // crosses the drag threshold, so the synthetic click that follows
+  // pointerup on the same interaction can be told apart from a real click.
+  const didDragRef = useRef(false)
 
   const pitches = useMemo(() => {
     const result: number[] = []
@@ -73,13 +108,20 @@ export function PianoRoll({
   const steps = useMemo(() => Array.from({ length: totalSteps }, (_, i) => i), [totalSteps])
   const barCount = Math.max(chords.length, 1)
 
-  // While dragging, the grid renders the note at its live preview length
+  // While dragging, the grid renders the note at its live preview position
   // without touching the committed notes (and its undo-history entry) —
   // that only happens once, on release.
   const displayNotes = useMemo(() => {
-    if (!resizing) return notes
-    return notes.map((n) => (n.id === resizing.noteId ? { ...n, lengthSteps: resizing.previewLength } : n))
-  }, [notes, resizing])
+    if (resizing) {
+      return notes.map((n) => (n.id === resizing.noteId ? { ...n, lengthSteps: resizing.previewLength } : n))
+    }
+    if (moving) {
+      return notes.map((n) =>
+        n.id === moving.noteId ? { ...n, pitch: moving.previewPitch, startStep: moving.previewStartStep } : n,
+      )
+    }
+    return notes
+  }, [notes, resizing, moving])
 
   function noteAt(pitch: number, step: number): MelodyNote | undefined {
     return displayNotes.find((n) => n.pitch === pitch && step >= n.startStep && step < n.startStep + n.lengthSteps)
@@ -94,11 +136,7 @@ export function PianoRoll({
     if (scaleLock && !isInScale(pitch % 12, musicKey.tonic, musicKey.scale)) return
 
     const length = Math.min(DEFAULT_NOTE_LENGTH_STEPS, totalSteps - step)
-    // Placing a note clears any note on the same pitch it would overlap,
-    // so the grid never has to represent stacked/ambiguous notes.
-    const withoutOverlap = notes.filter(
-      (n) => !(n.pitch === pitch && step < n.startStep + n.lengthSteps && step + length > n.startStep),
-    )
+    const withoutOverlap = clearOverlap(notes, pitch, step, length)
     onChange([...withoutOverlap, { id: createId('note'), pitch, startStep: step, lengthSteps: length }])
     onPreviewNote(pitch)
   }
@@ -115,24 +153,87 @@ export function PianoRoll({
       previewLength: note.lengthSteps,
     }
     setResizing(state)
+    // Tracks the live value alongside the (async) state update above, so
+    // handleUp can read it directly instead of committing onChange from
+    // inside a setState updater — React 19 flags cross-component setState
+    // calls made that way.
+    let previewLength = state.previewLength
 
     const maxLength = getMaxLength(note.pitch, note.startStep, notes, note.id, totalSteps)
 
     function handleMove(moveEvent: PointerEvent) {
       const deltaSteps = Math.round((moveEvent.clientX - state.pointerStartX) / CELL_WIDTH)
-      const nextLength = Math.min(maxLength, Math.max(1, state.startLength + deltaSteps))
-      setResizing((prev) => (prev && prev.noteId === state.noteId ? { ...prev, previewLength: nextLength } : prev))
+      previewLength = Math.min(maxLength, Math.max(1, state.startLength + deltaSteps))
+      setResizing((prev) => (prev && prev.noteId === state.noteId ? { ...prev, previewLength } : prev))
     }
 
     function handleUp() {
       window.removeEventListener('pointermove', handleMove)
       window.removeEventListener('pointerup', handleUp)
-      setResizing((prev) => {
-        if (prev && prev.noteId === state.noteId && prev.previewLength !== note.lengthSteps) {
-          onChange(notes.map((n) => (n.id === note.id ? { ...n, lengthSteps: prev.previewLength } : n)))
-        }
-        return null
-      })
+      setResizing(null)
+      if (previewLength !== note.lengthSteps) {
+        onChange(notes.map((n) => (n.id === note.id ? { ...n, lengthSteps: previewLength } : n)))
+      }
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+  }
+
+  function startMove(note: MelodyNote, event: ReactPointerEvent) {
+    // Without this, a mouse drag across the grid is interpreted as a text
+    // selection (dragging across the key labels highlights their text).
+    event.preventDefault()
+    const state: MoveState = {
+      noteId: note.id,
+      length: note.lengthSteps,
+      startPitch: note.pitch,
+      startStep: note.startStep,
+      pointerStartX: event.clientX,
+      pointerStartY: event.clientY,
+      previewPitch: note.pitch,
+      previewStartStep: note.startStep,
+    }
+
+    // Tracks the live values alongside the (async) state updates below, so
+    // handleUp can read them directly instead of committing onChange from
+    // inside a setState updater — React 19 flags cross-component setState
+    // calls made that way.
+    let previewPitch = state.previewPitch
+    let previewStartStep = state.previewStartStep
+
+    function handleMove(moveEvent: PointerEvent) {
+      const deltaX = moveEvent.clientX - state.pointerStartX
+      const deltaY = moveEvent.clientY - state.pointerStartY
+      if (!didDragRef.current) {
+        if (Math.abs(deltaX) < DRAG_THRESHOLD_PX && Math.abs(deltaY) < DRAG_THRESHOLD_PX) return
+        didDragRef.current = true
+        setMoving(state)
+      }
+      const deltaSteps = Math.round(deltaX / CELL_WIDTH)
+      const deltaPitchSteps = Math.round(deltaY / CELL_HEIGHT)
+      previewStartStep = Math.min(Math.max(0, state.startStep + deltaSteps), totalSteps - state.length)
+      // Pitches climb as MIDI numbers increase, but rows climb as the
+      // pointer moves up (negative deltaY) — flip the sign.
+      previewPitch = Math.min(MELODY_MAX_MIDI, Math.max(MELODY_MIN_MIDI, state.startPitch - deltaPitchSteps))
+      setMoving((prev) => (prev && prev.noteId === state.noteId ? { ...prev, previewStartStep, previewPitch } : prev))
+    }
+
+    function handleUp() {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      if (!didDragRef.current) return
+      setMoving(null)
+      if (previewPitch !== note.pitch || previewStartStep !== note.startStep) {
+        const withoutOverlap = clearOverlap(notes, previewPitch, previewStartStep, note.lengthSteps, note.id)
+        onChange([...withoutOverlap.filter((n) => n.id !== note.id), { ...note, pitch: previewPitch, startStep: previewStartStep }])
+      }
+      // Defer clearing the drag flag so the synthetic click that follows
+      // pointerup on this same interaction is still seen as a drag and
+      // doesn't re-toggle (remove) the note that was just moved.
+      setTimeout(() => {
+        didDragRef.current = false
+      }, 0)
     }
 
     window.addEventListener('pointermove', handleMove)
@@ -163,11 +264,11 @@ export function PianoRoll({
         </div>
       </div>
 
-      <div className="max-h-96 overflow-auto rounded-2xl border border-slate-200 bg-white">
+      <div className="max-h-96 select-none overflow-auto rounded-2xl border border-slate-200 bg-white">
         <div className="grid" style={{ gridTemplateColumns: `56px repeat(${totalSteps}, ${CELL_WIDTH}px)` }}>
           <div className="contents">
             <div
-              className="sticky left-0 top-0 z-20 border-r border-b border-slate-200 bg-slate-50"
+              className="sticky left-0 top-0 z-30 border-r border-b border-slate-200 bg-slate-50"
               style={{ height: HEADER_HEIGHT }}
             />
             {Array.from({ length: barCount }, (_, barIndex) => {
@@ -179,7 +280,7 @@ export function PianoRoll({
               return (
                 <div
                   key={barIndex}
-                  className="sticky top-0 z-10 truncate border-r border-b border-slate-200 bg-slate-50 px-1 text-center text-[11px] font-medium text-slate-500"
+                  className="sticky top-0 z-20 truncate border-r border-b border-slate-200 bg-slate-50 px-1 text-center text-[11px] font-medium text-slate-500"
                   style={{ height: HEADER_HEIGHT, gridColumn: `span ${STEPS_PER_BAR}` }}
                 >
                   {label}
@@ -199,7 +300,7 @@ export function PianoRoll({
                   type="button"
                   onClick={() => onPreviewNote(pitch)}
                   aria-label={`Preview ${noteName(pc, musicKey.tonic, musicKey.scale)}`}
-                  className={`sticky left-0 z-10 flex items-center justify-end border-r border-b border-slate-100 px-2 text-[11px] hover:bg-accent-soft ${
+                  className={`sticky left-0 z-20 flex items-center justify-end border-r border-b border-slate-100 px-2 text-[11px] hover:bg-accent-soft ${
                     isTonic ? 'bg-accent-soft font-semibold text-accent' : 'bg-slate-50 text-slate-500'
                   }`}
                   style={{ height: CELL_HEIGHT }}
@@ -225,7 +326,13 @@ export function PianoRoll({
                       key={step}
                       role="button"
                       tabIndex={0}
-                      onClick={() => toggleCell(pitch, step)}
+                      onPointerDown={(event) => {
+                        if (note) startMove(note, event)
+                      }}
+                      onClick={() => {
+                        if (didDragRef.current) return
+                        toggleCell(pitch, step)
+                      }}
                       onKeyDown={(event: KeyboardEvent) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault()
@@ -235,7 +342,8 @@ export function PianoRoll({
                       aria-label={`${noteName(pc, musicKey.tonic, musicKey.scale)} at step ${step + 1}`}
                       aria-disabled={isLocked}
                       className={[
-                        'relative flex cursor-pointer items-center justify-center border-b',
+                        'relative flex items-center justify-center border-b',
+                        note ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                         isBarLine
                           ? 'border-r-2 border-r-slate-400'
                           : isBeatLine
@@ -247,7 +355,7 @@ export function PianoRoll({
                         isLocked ? 'cursor-not-allowed opacity-50' : '',
                         isCurrentStep ? 'ring-1 ring-inset ring-amber-400' : '',
                       ].join(' ')}
-                      style={{ width: CELL_WIDTH, height: CELL_HEIGHT }}
+                      style={{ width: CELL_WIDTH, height: CELL_HEIGHT, touchAction: note ? 'none' : undefined }}
                     >
                       {note && isNoteStart && (
                         <span
@@ -278,8 +386,9 @@ export function PianoRoll({
         </div>
       </div>
       <p className="text-xs text-slate-400">
-        Tap a cell to add a note, tap it again to remove it. Drag the grip on a note&rsquo;s end to
-        resize it. Tap a key on the left to hear it. Dimmed rows are outside the current key.
+        Tap a cell to add a note, tap it again to remove it. Drag a note to move it, or drag the
+        grip on its end to resize it. Tap a key on the left to hear it. Dimmed rows are outside the
+        current key.
       </p>
     </section>
   )
