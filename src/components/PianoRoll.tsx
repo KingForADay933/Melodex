@@ -136,7 +136,12 @@ export function PianoRoll({
                 {steps.map((step) => {
                   const note = noteAt(pitch, step)
                   const isNoteStart = note?.startStep === step
-                  const barBoundary = step % STEPS_PER_BAR === 0
+                  // A border-right on step N sits between N and N+1, so the
+                  // line marking a boundary belongs on the step *before* it
+                  // (the last 16th of the previous bar/beat), not on the
+                  // step the bar/beat actually starts on.
+                  const isBarLine = (step + 1) % STEPS_PER_BAR === 0
+                  const isBeatLine = !isBarLine && (step + 1) % 4 === 0
                   const isCurrentStep = currentStep !== null && step === currentStep
                   const isLocked = scaleLock && !inKey && !note
 
@@ -148,8 +153,12 @@ export function PianoRoll({
                       aria-label={`${noteName(pc, musicKey.tonic, musicKey.scale)} at step ${step + 1}`}
                       aria-disabled={isLocked}
                       className={[
-                        'relative flex items-center justify-center border-b border-r',
-                        barBoundary ? 'border-r-slate-300' : 'border-r-slate-100',
+                        'relative flex items-center justify-center border-b',
+                        isBarLine
+                          ? 'border-r-2 border-r-slate-400'
+                          : isBeatLine
+                            ? 'border-r-2 border-r-slate-400/50'
+                            : 'border-r border-r-slate-100',
                         'border-b-slate-100',
                         note ? 'bg-white' : inKey ? 'bg-white hover:bg-accent-soft' : 'bg-slate-50',
                         !note && !inKey && !isLocked ? 'hover:bg-accent-soft' : '',
