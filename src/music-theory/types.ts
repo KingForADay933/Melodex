@@ -30,9 +30,14 @@ export interface DiatonicChord {
   noteNames: string[]
 }
 
-/** A named scale-degree pattern, e.g. "I – V – vi – IV" -> [1, 5, 6, 4]. */
+export type ProgressionGenre = 'pop' | 'rock' | 'jazz' | 'lofi' | 'emotional'
+
+/** A named scale-degree pattern, e.g. "Axis Progression" -> [1, 5, 6, 4].
+ * The pattern is scale-degree numbers (1-7), not fixed roman numerals, so
+ * the same preset resolves to correctly-cased chords in any key/scale. */
 export interface ProgressionPreset {
   id: string
   name: string
+  genre: ProgressionGenre
   pattern: number[]
 }

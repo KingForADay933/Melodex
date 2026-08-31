@@ -46,8 +46,13 @@ export function buildProjectMidi(project: Project): Midi {
   return midi
 }
 
+function sanitizeFilename(name: string): string {
+  const cleaned = name.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '')
+  return cleaned.length > 0 ? cleaned : 'chord-sketch'
+}
+
 /** Builds the project's MIDI file and triggers a browser download. */
-export function downloadProjectMidi(project: Project, filename = 'chord-sketch.mid'): void {
+export function downloadProjectMidi(project: Project, filename = `${sanitizeFilename(project.name)}.mid`): void {
   const midi = buildProjectMidi(project)
   const bytes = midi.toArray()
   // Copy into a plain ArrayBuffer — Blob won't accept the ArrayBufferLike

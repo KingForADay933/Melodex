@@ -21,7 +21,11 @@ export interface MelodyNote {
 }
 
 export interface Project {
+  id: string
+  name: string
   key: MusicKey
   chords: ChordTrackItem[]
   melody: MelodyNote[]
+  createdAt: number
+  updatedAt: number
 }
