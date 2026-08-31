@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Project } from '../types/project'
+import type { InstrumentId } from './instruments'
 import { PlaybackEngine } from './playback'
 
 /** React lifecycle glue around PlaybackEngine: one engine per mounted app,
@@ -37,5 +38,9 @@ export function useAudioEngine() {
     engineRef.current?.stop()
   }
 
-  return { play, stop, isPlaying, currentStep }
+  const previewNote = (pitch: number, instrumentId: InstrumentId) => {
+    engineRef.current?.previewNote(pitch, instrumentId)
+  }
+
+  return { play, stop, previewNote, isPlaying, currentStep }
 }

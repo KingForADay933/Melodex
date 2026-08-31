@@ -12,6 +12,9 @@ interface PianoRollProps {
   notes: MelodyNote[]
   totalSteps: number
   onChange: (notes: MelodyNote[]) => void
+  /** Auditions a pitch — called when a new note is placed, or a row's key
+   * label is tapped. */
+  onPreviewNote: (pitch: number) => void
   /** Current playback step (16th notes), for the moving playhead highlight. */
   currentStep: number | null
   /** When on, tapping an out-of-key cell does nothing — a safety net for
@@ -54,6 +57,7 @@ export function PianoRoll({
   notes,
   totalSteps,
   onChange,
+  onPreviewNote,
   currentStep,
   scaleLock,
   onToggleScaleLock,
@@ -96,6 +100,7 @@ export function PianoRoll({
       (n) => !(n.pitch === pitch && step < n.startStep + n.lengthSteps && step + length > n.startStep),
     )
     onChange([...withoutOverlap, { id: createId('note'), pitch, startStep: step, lengthSteps: length }])
+    onPreviewNote(pitch)
   }
 
   function startResize(note: MelodyNote, event: ReactPointerEvent) {
@@ -190,14 +195,17 @@ export function PianoRoll({
 
             return (
               <div key={pitch} className="contents">
-                <div
-                  className={`sticky left-0 z-10 flex items-center justify-end border-r border-b border-slate-100 px-2 text-[11px] ${
+                <button
+                  type="button"
+                  onClick={() => onPreviewNote(pitch)}
+                  aria-label={`Preview ${noteName(pc, musicKey.tonic, musicKey.scale)}`}
+                  className={`sticky left-0 z-10 flex items-center justify-end border-r border-b border-slate-100 px-2 text-[11px] hover:bg-accent-soft ${
                     isTonic ? 'bg-accent-soft font-semibold text-accent' : 'bg-slate-50 text-slate-500'
                   }`}
                   style={{ height: CELL_HEIGHT }}
                 >
                   {noteName(pc, musicKey.tonic, musicKey.scale)}
-                </div>
+                </button>
 
                 {steps.map((step) => {
                   const note = noteAt(pitch, step)
@@ -271,7 +279,7 @@ export function PianoRoll({
       </div>
       <p className="text-xs text-slate-400">
         Tap a cell to add a note, tap it again to remove it. Drag the grip on a note&rsquo;s end to
-        resize it. Dimmed rows are outside the current key.
+        resize it. Tap a key on the left to hear it. Dimmed rows are outside the current key.
       </p>
     </section>
   )

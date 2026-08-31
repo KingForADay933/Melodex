@@ -29,7 +29,7 @@ function App() {
     renameProject,
     removeProject,
   } = useProjectManager()
-  const { play, stop, isPlaying, currentStep } = useAudioEngine()
+  const { play, stop, previewNote, isPlaying, currentStep } = useAudioEngine()
 
   const totalSteps = Math.max(project.chords.length, 1) * STEPS_PER_BAR
   const activeChordIndex = currentStep !== null ? Math.floor(currentStep / STEPS_PER_BAR) : null
@@ -123,6 +123,7 @@ function App() {
             totalSteps={totalSteps}
             onMelodyChange={(melody) => updateActiveProject((p) => ({ ...p, melody }))}
             onInstrumentChange={(melodyInstrument) => updateActiveProject((p) => ({ ...p, melodyInstrument }))}
+            onPreviewNote={(pitch) => previewNote(pitch, project.melodyInstrument)}
             currentStep={isPlaying ? currentStep : null}
             {...history}
           />

@@ -2,10 +2,25 @@ import * as Tone from 'tone'
 import { CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
 import { getVoicedChord, voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
+import type { InstrumentId } from './instruments'
 import { INSTRUMENT_PRESETS } from './instruments'
+
+/** How long a one-off note preview (clicking a piano-roll cell or key)
+ * rings for, independent of tempo — it's an audition, not part of a take. */
+const PREVIEW_NOTE_DURATION = 0.25
 
 function midiToNoteName(midi: number): string {
   return Tone.Frequency(midi, 'midi').toNote()
+}
+
+function applyInstrument(synth: Tone.PolySynth<Tone.MonoSynth>, instrumentId: InstrumentId): void {
+  const preset = INSTRUMENT_PRESETS[instrumentId]
+  synth.set({
+    oscillator: preset.oscillator,
+    envelope: preset.envelope,
+    filter: preset.filter,
+    filterEnvelope: preset.filterEnvelope,
+  })
 }
 
 /**
@@ -18,6 +33,10 @@ export class PlaybackEngine {
   private limiter: Tone.Limiter
   private chordSynth: Tone.PolySynth<Tone.MonoSynth>
   private melodySynth: Tone.PolySynth<Tone.MonoSynth>
+  /** Separate from melodySynth so auditioning a pitch (click a piano-roll
+   * cell or key) never steals a voice from — or otherwise touches — actual
+   * sequenced playback, even while the transport is running. */
+  private previewSynth: Tone.PolySynth<Tone.MonoSynth>
   private chordPart: Tone.Part | null = null
   private melodyPart: Tone.Part | null = null
 
@@ -48,6 +67,9 @@ export class PlaybackEngine {
     // oscillator gets told to "restart" at a time that isn't after itself.
     this.melodySynth = new Tone.PolySynth(Tone.MonoSynth).connect(this.compressor)
     this.melodySynth.set({ volume: -8 })
+
+    this.previewSynth = new Tone.PolySynth(Tone.MonoSynth).connect(this.compressor)
+    this.previewSynth.set({ volume: -8 })
   }
 
   async play(project: Project): Promise<void> {
@@ -56,20 +78,8 @@ export class PlaybackEngine {
 
     if (project.chords.length === 0) return
 
-    const chordPreset = INSTRUMENT_PRESETS[project.chordInstrument]
-    this.chordSynth.set({
-      oscillator: chordPreset.oscillator,
-      envelope: chordPreset.envelope,
-      filter: chordPreset.filter,
-      filterEnvelope: chordPreset.filterEnvelope,
-    })
-    const melodyPreset = INSTRUMENT_PRESETS[project.melodyInstrument]
-    this.melodySynth.set({
-      oscillator: melodyPreset.oscillator,
-      envelope: melodyPreset.envelope,
-      filter: melodyPreset.filter,
-      filterEnvelope: melodyPreset.filterEnvelope,
-    })
+    applyInstrument(this.chordSynth, project.chordInstrument)
+    applyInstrument(this.melodySynth, project.melodyInstrument)
 
     Tone.Transport.bpm.value = project.tempo
     const stepDuration = Tone.Time('16n').toSeconds()
@@ -127,10 +137,20 @@ export class PlaybackEngine {
     this.onStepChange?.(null)
   }
 
+  /** Auditions a single pitch — clicking a piano-roll cell to place a note,
+   * or a row's key label. Independent of the transport, so it works
+   * whether or not anything is currently playing. */
+  async previewNote(pitch: number, instrumentId: InstrumentId): Promise<void> {
+    await Tone.start()
+    applyInstrument(this.previewSynth, instrumentId)
+    this.previewSynth.triggerAttackRelease(midiToNoteName(pitch), PREVIEW_NOTE_DURATION)
+  }
+
   dispose(): void {
     this.stop()
     this.chordSynth.dispose()
     this.melodySynth.dispose()
+    this.previewSynth.dispose()
     this.compressor.dispose()
     this.limiter.dispose()
   }

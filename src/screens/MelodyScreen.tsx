@@ -15,6 +15,7 @@ interface MelodyScreenProps extends HistoryControls {
   totalSteps: number
   onMelodyChange: (notes: MelodyNote[]) => void
   onInstrumentChange: (instrument: InstrumentId) => void
+  onPreviewNote: (pitch: number) => void
   currentStep: number | null
 }
 
@@ -23,6 +24,7 @@ export function MelodyScreen({
   totalSteps,
   onMelodyChange,
   onInstrumentChange,
+  onPreviewNote,
   currentStep,
   ...history
 }: MelodyScreenProps) {
@@ -67,6 +69,7 @@ export function MelodyScreen({
         notes={project.melody}
         totalSteps={totalSteps}
         onChange={onMelodyChange}
+        onPreviewNote={onPreviewNote}
         currentStep={currentStep}
         scaleLock={scaleLock}
         onToggleScaleLock={() => setScaleLock((v) => !v)}
