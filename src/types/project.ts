@@ -1,3 +1,4 @@
+import type { InstrumentId } from '../audio/instruments'
 import type { ChordExtension, MusicKey } from '../music-theory'
 
 /**
@@ -35,6 +36,8 @@ export interface Project {
   melody: MelodyNote[]
   /** Beats per minute. */
   tempo: number
+  chordInstrument: InstrumentId
+  melodyInstrument: InstrumentId
   createdAt: number
   updatedAt: number
 }

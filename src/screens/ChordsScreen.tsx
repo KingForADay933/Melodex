@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import type { InstrumentId } from '../audio/instruments'
 import { ChordTrack } from '../components/ChordTrack'
+import { InstrumentPicker } from '../components/InstrumentPicker'
 import { ProgressionPicker } from '../components/ProgressionPicker'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
@@ -10,10 +12,17 @@ import { formatScreenSubtitle } from '../utils/formatProject'
 interface ChordsScreenProps extends HistoryControls {
   project: Project
   onChordsChange: (chords: ChordTrackItem[]) => void
+  onInstrumentChange: (instrument: InstrumentId) => void
   activeIndex: number | null
 }
 
-export function ChordsScreen({ project, onChordsChange, activeIndex, ...history }: ChordsScreenProps) {
+export function ChordsScreen({
+  project,
+  onChordsChange,
+  onInstrumentChange,
+  activeIndex,
+  ...history
+}: ChordsScreenProps) {
   const [showPicker, setShowPicker] = useState(project.chords.length === 0)
 
   return (
@@ -23,6 +32,8 @@ export function ChordsScreen({ project, onChordsChange, activeIndex, ...history 
         This is your song&rsquo;s chord sequence. Use the arrows to reorder, or tap a roman
         numeral below to add another chord from your key.
       </GuidanceTip>
+
+      <InstrumentPicker label="Sound" value={project.chordInstrument} onChange={onInstrumentChange} />
 
       <ChordTrack
         musicKey={project.key}

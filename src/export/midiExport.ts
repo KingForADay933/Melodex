@@ -1,4 +1,5 @@
 import { Midi } from '@tonejs/midi'
+import { INSTRUMENT_PRESETS } from '../audio/instruments'
 import { BEATS_PER_BAR, CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
 import { getVoicedChord, voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
@@ -43,10 +44,12 @@ export function buildProjectMidi(project: Project): Midi {
 
   const chordTrack = midi.addTrack()
   chordTrack.name = 'Chords'
+  chordTrack.instrument.number = INSTRUMENT_PRESETS[project.chordInstrument].midiProgram
   addChordNotes(chordTrack, project)
 
   const melodyTrack = midi.addTrack()
   melodyTrack.name = 'Melody'
+  melodyTrack.instrument.number = INSTRUMENT_PRESETS[project.melodyInstrument].midiProgram
   addMelodyNotes(melodyTrack, project)
 
   return midi
@@ -58,6 +61,7 @@ export function buildChordsOnlyMidi(project: Project): Midi {
   midi.header.setTempo(project.tempo)
   const track = midi.addTrack()
   track.name = 'Chords'
+  track.instrument.number = INSTRUMENT_PRESETS[project.chordInstrument].midiProgram
   addChordNotes(track, project)
   return midi
 }
@@ -68,6 +72,7 @@ export function buildMelodyOnlyMidi(project: Project): Midi {
   midi.header.setTempo(project.tempo)
   const track = midi.addTrack()
   track.name = 'Melody'
+  track.instrument.number = INSTRUMENT_PRESETS[project.melodyInstrument].midiProgram
   addMelodyNotes(track, project)
   return midi
 }

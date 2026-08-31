@@ -2,6 +2,7 @@ import * as Tone from 'tone'
 import { CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
 import { getVoicedChord, voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
+import { INSTRUMENT_PRESETS } from './instruments'
 
 function midiToNoteName(midi: number): string {
   return Tone.Frequency(midi, 'midi').toNote()
@@ -23,15 +24,7 @@ export class PlaybackEngine {
 
   constructor() {
     this.chordSynth = new Tone.PolySynth(Tone.Synth).toDestination()
-    this.chordSynth.set({
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.02, decay: 0.2, sustain: 0.4, release: 0.8 },
-    })
-
-    this.melodySynth = new Tone.Synth({
-      oscillator: { type: 'square' },
-      envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.3 },
-    }).toDestination()
+    this.melodySynth = new Tone.Synth().toDestination()
     this.melodySynth.volume.value = -6
   }
 
@@ -40,6 +33,11 @@ export class PlaybackEngine {
     this.resetTransport()
 
     if (project.chords.length === 0) return
+
+    const chordPreset = INSTRUMENT_PRESETS[project.chordInstrument]
+    this.chordSynth.set({ oscillator: chordPreset.oscillator, envelope: chordPreset.envelope })
+    const melodyPreset = INSTRUMENT_PRESETS[project.melodyInstrument]
+    this.melodySynth.set({ oscillator: melodyPreset.oscillator, envelope: melodyPreset.envelope })
 
     Tone.Transport.bpm.value = project.tempo
     const stepDuration = Tone.Time('16n').toSeconds()

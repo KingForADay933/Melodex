@@ -13,6 +13,10 @@ interface PianoRollProps {
   onChange: (notes: MelodyNote[]) => void
   /** Current playback step (16th notes), for the moving playhead highlight. */
   currentStep: number | null
+  /** When on, tapping an out-of-key cell does nothing — a safety net for
+   * beginners who want every note guaranteed to sound "right". */
+  scaleLock: boolean
+  onToggleScaleLock: () => void
 }
 
 // Notes are placed at a fixed length rather than drawn/resized — free-length
@@ -22,7 +26,16 @@ const CELL_WIDTH = 22
 const CELL_HEIGHT = 18
 const HEADER_HEIGHT = 22
 
-export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, currentStep }: PianoRollProps) {
+export function PianoRoll({
+  musicKey,
+  chords,
+  notes,
+  totalSteps,
+  onChange,
+  currentStep,
+  scaleLock,
+  onToggleScaleLock,
+}: PianoRollProps) {
   const pitches = useMemo(() => {
     const result: number[] = []
     for (let midi = MELODY_MAX_MIDI; midi >= MELODY_MIN_MIDI; midi -= 1) result.push(midi)
@@ -44,6 +57,8 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
       onChange(notes.filter((n) => n.id !== existing.id))
       return
     }
+    if (scaleLock && !isInScale(pitch % 12, musicKey.tonic, musicKey.scale)) return
+
     const length = Math.min(DEFAULT_NOTE_LENGTH_STEPS, totalSteps - step)
     // Placing a note clears any note on the same pitch it would overlap,
     // so the grid never has to represent stacked/ambiguous notes.
@@ -55,7 +70,7 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
 
   return (
     <section className="space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Melody</h2>
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
@@ -64,6 +79,16 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rotate-45 bg-slate-400" /> Out of key
           </span>
+          <button
+            type="button"
+            onClick={onToggleScaleLock}
+            aria-pressed={scaleLock}
+            className={`rounded-md px-2 py-1 text-xs font-medium ${
+              scaleLock ? 'bg-accent text-white' : 'border border-slate-200 text-slate-500 hover:bg-accent-soft'
+            }`}
+          >
+            Scale lock
+          </button>
         </div>
       </div>
 
@@ -113,6 +138,7 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
                   const isNoteStart = note?.startStep === step
                   const barBoundary = step % STEPS_PER_BAR === 0
                   const isCurrentStep = currentStep !== null && step === currentStep
+                  const isLocked = scaleLock && !inKey && !note
 
                   return (
                     <button
@@ -120,11 +146,14 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
                       type="button"
                       onClick={() => toggleCell(pitch, step)}
                       aria-label={`${noteName(pc, musicKey.tonic, musicKey.scale)} at step ${step + 1}`}
+                      aria-disabled={isLocked}
                       className={[
                         'relative flex items-center justify-center border-b border-r',
                         barBoundary ? 'border-r-slate-300' : 'border-r-slate-100',
                         'border-b-slate-100',
-                        note ? 'bg-white' : inKey ? 'bg-white hover:bg-accent-soft' : 'bg-slate-50 hover:bg-accent-soft',
+                        note ? 'bg-white' : inKey ? 'bg-white hover:bg-accent-soft' : 'bg-slate-50',
+                        !note && !inKey && !isLocked ? 'hover:bg-accent-soft' : '',
+                        isLocked ? 'cursor-not-allowed opacity-50' : '',
                         isCurrentStep ? 'ring-1 ring-inset ring-amber-400' : '',
                       ].join(' ')}
                       style={{ width: CELL_WIDTH, height: CELL_HEIGHT }}

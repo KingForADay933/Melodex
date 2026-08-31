@@ -4,15 +4,18 @@ import { BottomTabBar } from './components/BottomTabBar'
 import { MiniTransportBar } from './components/MiniTransportBar'
 import { STEPS_PER_BAR } from './constants'
 import type { Screen } from './navigation/types'
+import { hasSeenOnboarding, markOnboardingSeen } from './onboarding/onboardingStorage'
 import { ChordsScreen } from './screens/ChordsScreen'
 import { ExportScreen } from './screens/ExportScreen'
 import { HomeScreen } from './screens/HomeScreen'
 import { KeyScreen } from './screens/KeyScreen'
 import { MelodyScreen } from './screens/MelodyScreen'
+import { OnboardingScreen } from './screens/OnboardingScreen'
 import { useProjectManager } from './storage/useProjectManager'
 
 function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('home')
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
   const {
     projects,
     activeProject: project,
@@ -45,6 +48,11 @@ function App() {
     setActiveScreen('key')
   }
 
+  function finishOnboarding() {
+    markOnboardingSeen()
+    setShowOnboarding(false)
+  }
+
   // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or +Y) for undo/redo, skipped while
   // typing so it doesn't fight a text field's own undo (e.g. renaming).
   useEffect(() => {
@@ -69,6 +77,10 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [undo, redo])
 
+  if (showOnboarding) {
+    return <OnboardingScreen onFinish={finishOnboarding} />
+  }
+
   return (
     <div className="min-h-svh bg-surface">
       <div className={`mx-auto max-w-3xl px-4 pt-6 sm:pt-10 ${showMiniTransport ? 'pb-40' : 'pb-24'}`}>
@@ -79,6 +91,7 @@ function App() {
             onNew={startNewProject}
             onDelete={removeProject}
             onRename={renameProject}
+            onReplayOnboarding={() => setShowOnboarding(true)}
           />
         )}
 
@@ -97,6 +110,7 @@ function App() {
             key={project.id}
             project={project}
             onChordsChange={(chords) => updateActiveProject((p) => ({ ...p, chords }))}
+            onInstrumentChange={(chordInstrument) => updateActiveProject((p) => ({ ...p, chordInstrument }))}
             activeIndex={isPlaying ? activeChordIndex : null}
             {...history}
           />
@@ -108,6 +122,7 @@ function App() {
             project={project}
             totalSteps={totalSteps}
             onMelodyChange={(melody) => updateActiveProject((p) => ({ ...p, melody }))}
+            onInstrumentChange={(melodyInstrument) => updateActiveProject((p) => ({ ...p, melodyInstrument }))}
             currentStep={isPlaying ? currentStep : null}
             {...history}
           />

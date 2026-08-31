@@ -2,6 +2,9 @@ import { DEFAULT_BPM } from '../constants'
 import type { ChordTrackItem, Project } from '../types/project'
 import { createId } from '../utils/id'
 
+const DEFAULT_CHORD_INSTRUMENT = 'warm'
+const DEFAULT_MELODY_INSTRUMENT = 'pluck'
+
 const STORAGE_KEY = 'melodex.projects.v1'
 
 type ProjectStore = Record<string, Project>
@@ -21,6 +24,8 @@ function normalizeProject(project: Project): Project {
   return {
     ...project,
     tempo: project.tempo ?? DEFAULT_BPM,
+    chordInstrument: project.chordInstrument ?? DEFAULT_CHORD_INSTRUMENT,
+    melodyInstrument: project.melodyInstrument ?? DEFAULT_MELODY_INSTRUMENT,
     chords: project.chords.map(normalizeChord),
   }
 }
@@ -73,6 +78,8 @@ export function createProject(name = 'Untitled sketch'): Project {
     chords: [],
     melody: [],
     tempo: DEFAULT_BPM,
+    chordInstrument: DEFAULT_CHORD_INSTRUMENT,
+    melodyInstrument: DEFAULT_MELODY_INSTRUMENT,
     createdAt: now,
     updatedAt: now,
   }

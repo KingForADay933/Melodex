@@ -15,6 +15,7 @@ interface HomeScreenProps {
   onNew: () => void
   onDelete: (id: string) => void
   onRename: (id: string, name: string) => void
+  onReplayOnboarding: () => void
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -26,7 +27,7 @@ function formatRelativeTime(timestamp: number): string {
   return `${Math.round(diffHours / 24)}d ago`
 }
 
-export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename }: HomeScreenProps) {
+export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename, onReplayOnboarding }: HomeScreenProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
 
@@ -142,10 +143,15 @@ export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename }: Home
         </div>
       )}
 
-      <footer className="border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
-        <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
-          Got feedback? Join the Discord ↗
-        </a>
+      <footer className="space-y-2 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
+        <div>
+          <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-accent">
+            Got feedback? Join the Discord ↗
+          </a>
+        </div>
+        <button type="button" onClick={onReplayOnboarding} className="hover:text-accent">
+          Replay welcome tour
+        </button>
       </footer>
     </div>
   )
