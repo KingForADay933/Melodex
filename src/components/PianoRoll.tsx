@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { MELODY_MAX_MIDI, MELODY_MIN_MIDI, STEPS_PER_BAR } from '../constants'
 import { getVoicedChord, isInScale, noteName } from '../music-theory'
 import type { MusicKey } from '../music-theory'
@@ -19,12 +20,33 @@ interface PianoRollProps {
   onToggleScaleLock: () => void
 }
 
-// Notes are placed at a fixed length rather than drawn/resized — free-length
-// editing is a later-phase piano-roll refinement, not a Phase 0 requirement.
+// New notes start at a fixed length; the grip handle on the last cell of a
+// note is how the user changes that afterward.
 const DEFAULT_NOTE_LENGTH_STEPS = 2
 const CELL_WIDTH = 22
 const CELL_HEIGHT = 18
 const HEADER_HEIGHT = 22
+const RESIZE_HANDLE_WIDTH = 8
+
+interface ResizeState {
+  noteId: string
+  pitch: number
+  startStep: number
+  /** Pointer X (viewport px) where the drag began. */
+  pointerStartX: number
+  startLength: number
+  /** Live length while dragging — not yet committed to onChange/undo history. */
+  previewLength: number
+}
+
+/** How long a note at (pitch, startStep) can grow before hitting the next
+ * note on the same pitch, or the end of the track. */
+function getMaxLength(pitch: number, startStep: number, notes: MelodyNote[], excludeNoteId: string, totalSteps: number): number {
+  const nextNoteStart = notes
+    .filter((n) => n.id !== excludeNoteId && n.pitch === pitch && n.startStep > startStep)
+    .reduce((min, n) => Math.min(min, n.startStep), totalSteps)
+  return nextNoteStart - startStep
+}
 
 export function PianoRoll({
   musicKey,
@@ -36,6 +58,8 @@ export function PianoRoll({
   scaleLock,
   onToggleScaleLock,
 }: PianoRollProps) {
+  const [resizing, setResizing] = useState<ResizeState | null>(null)
+
   const pitches = useMemo(() => {
     const result: number[] = []
     for (let midi = MELODY_MAX_MIDI; midi >= MELODY_MIN_MIDI; midi -= 1) result.push(midi)
@@ -45,10 +69,16 @@ export function PianoRoll({
   const steps = useMemo(() => Array.from({ length: totalSteps }, (_, i) => i), [totalSteps])
   const barCount = Math.max(chords.length, 1)
 
+  // While dragging, the grid renders the note at its live preview length
+  // without touching the committed notes (and its undo-history entry) —
+  // that only happens once, on release.
+  const displayNotes = useMemo(() => {
+    if (!resizing) return notes
+    return notes.map((n) => (n.id === resizing.noteId ? { ...n, lengthSteps: resizing.previewLength } : n))
+  }, [notes, resizing])
+
   function noteAt(pitch: number, step: number): MelodyNote | undefined {
-    return notes.find(
-      (n) => n.pitch === pitch && step >= n.startStep && step < n.startStep + n.lengthSteps,
-    )
+    return displayNotes.find((n) => n.pitch === pitch && step >= n.startStep && step < n.startStep + n.lengthSteps)
   }
 
   function toggleCell(pitch: number, step: number) {
@@ -66,6 +96,42 @@ export function PianoRoll({
       (n) => !(n.pitch === pitch && step < n.startStep + n.lengthSteps && step + length > n.startStep),
     )
     onChange([...withoutOverlap, { id: createId('note'), pitch, startStep: step, lengthSteps: length }])
+  }
+
+  function startResize(note: MelodyNote, event: ReactPointerEvent) {
+    event.stopPropagation()
+    event.preventDefault()
+    const state: ResizeState = {
+      noteId: note.id,
+      pitch: note.pitch,
+      startStep: note.startStep,
+      pointerStartX: event.clientX,
+      startLength: note.lengthSteps,
+      previewLength: note.lengthSteps,
+    }
+    setResizing(state)
+
+    const maxLength = getMaxLength(note.pitch, note.startStep, notes, note.id, totalSteps)
+
+    function handleMove(moveEvent: PointerEvent) {
+      const deltaSteps = Math.round((moveEvent.clientX - state.pointerStartX) / CELL_WIDTH)
+      const nextLength = Math.min(maxLength, Math.max(1, state.startLength + deltaSteps))
+      setResizing((prev) => (prev && prev.noteId === state.noteId ? { ...prev, previewLength: nextLength } : prev))
+    }
+
+    function handleUp() {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      setResizing((prev) => {
+        if (prev && prev.noteId === state.noteId && prev.previewLength !== note.lengthSteps) {
+          onChange(notes.map((n) => (n.id === note.id ? { ...n, lengthSteps: prev.previewLength } : n)))
+        }
+        return null
+      })
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
   }
 
   return (
@@ -136,6 +202,7 @@ export function PianoRoll({
                 {steps.map((step) => {
                   const note = noteAt(pitch, step)
                   const isNoteStart = note?.startStep === step
+                  const isNoteEnd = note ? step === note.startStep + note.lengthSteps - 1 : false
                   // A border-right on step N sits between N and N+1, so the
                   // line marking a boundary belongs on the step *before* it
                   // (the last 16th of the previous bar/beat), not on the
@@ -146,14 +213,21 @@ export function PianoRoll({
                   const isLocked = scaleLock && !inKey && !note
 
                   return (
-                    <button
+                    <div
                       key={step}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggleCell(pitch, step)}
+                      onKeyDown={(event: KeyboardEvent) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          toggleCell(pitch, step)
+                        }
+                      }}
                       aria-label={`${noteName(pc, musicKey.tonic, musicKey.scale)} at step ${step + 1}`}
                       aria-disabled={isLocked}
                       className={[
-                        'relative flex items-center justify-center border-b',
+                        'relative flex cursor-pointer items-center justify-center border-b',
                         isBarLine
                           ? 'border-r-2 border-r-slate-400'
                           : isBeatLine
@@ -175,7 +249,19 @@ export function PianoRoll({
                         />
                       )}
                       {note && !isNoteStart && <span className="h-1.5 w-4/5 rounded-full bg-accent/40" />}
-                    </button>
+
+                      {note && isNoteEnd && (
+                        <div
+                          role="presentation"
+                          onPointerDown={(event) => startResize(note, event)}
+                          onClick={(event) => event.stopPropagation()}
+                          className="absolute inset-y-0 right-0 z-10 flex cursor-ew-resize items-center justify-end"
+                          style={{ width: RESIZE_HANDLE_WIDTH, touchAction: 'none' }}
+                        >
+                          <span className="h-3/5 w-[3px] rounded-full bg-accent" />
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -184,7 +270,8 @@ export function PianoRoll({
         </div>
       </div>
       <p className="text-xs text-slate-400">
-        Tap a cell to add a note, tap it again to remove it. Dimmed rows are outside the current key.
+        Tap a cell to add a note, tap it again to remove it. Drag the grip on a note&rsquo;s end to
+        resize it. Dimmed rows are outside the current key.
       </p>
     </section>
   )
