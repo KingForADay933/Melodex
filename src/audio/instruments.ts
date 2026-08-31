@@ -56,7 +56,14 @@ export const INSTRUMENT_PRESETS: Record<InstrumentId, InstrumentPreset> = {
     id: 'pluck',
     label: 'Pluck',
     oscillator: { type: 'triangle' },
-    envelope: { attack: 0.005, decay: 0.3, sustain: 0, release: 0.3 },
+    // Amplitude sustain is a hair above zero, not exactly 0 — Tone.js's
+    // MonoSynth stops and restarts its oscillator on every note when
+    // sustain is exactly 0 (to save CPU), and that start/stop scheduling
+    // can collide with itself when a voice retriggers quickly, throwing a
+    // "start time must be strictly greater" error mid-playback. 0.001 is
+    // inaudibly close to true silence but keeps the oscillator running
+    // continuously, sidestepping that whole code path.
+    envelope: { attack: 0.005, decay: 0.3, sustain: 0.001, release: 0.3 },
     filter: { type: 'lowpass', Q: 2, rolloff: -24 },
     filterEnvelope: { attack: 0.005, decay: 0.25, sustain: 0, release: 0.3, baseFrequency: 200, octaves: 4.5 },
     midiProgram: 46, // Pizzicato Strings

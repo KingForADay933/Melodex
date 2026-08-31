@@ -14,9 +14,10 @@ function midiToNoteName(midi: number): string {
  * swapped) without touching component code, and vice versa.
  */
 export class PlaybackEngine {
-  private masterBus: Tone.Compressor
+  private compressor: Tone.Compressor
+  private limiter: Tone.Limiter
   private chordSynth: Tone.PolySynth<Tone.MonoSynth>
-  private melodySynth: Tone.MonoSynth
+  private melodySynth: Tone.PolySynth<Tone.MonoSynth>
   private chordPart: Tone.Part | null = null
   private melodyPart: Tone.Part | null = null
 
@@ -24,14 +25,29 @@ export class PlaybackEngine {
   onStepChange: ((step: number | null) => void) | null = null
 
   constructor() {
-    // A gentle bus compressor keeps a dense chord (several PolySynth voices
-    // stacked at once) from summing into harsh, clipped peaks — without it,
-    // a 9th chord can be noticeably louder and harsher than a single note.
-    this.masterBus = new Tone.Compressor({ threshold: -18, ratio: 3, attack: 0.02, release: 0.2 }).toDestination()
-    this.chordSynth = new Tone.PolySynth(Tone.MonoSynth).connect(this.masterBus)
-    this.chordSynth.set({ volume: -4 })
-    this.melodySynth = new Tone.MonoSynth().connect(this.masterBus)
-    this.melodySynth.volume.value = -6
+    // PolySynth stacks a full-gain voice per note, so a dense chord (a 9th
+    // chord is 5 simultaneous voices) can sum well past 0dBFS right at the
+    // attack, where the oscillators start roughly in phase — that hard
+    // digital clipping is what reads as "static". Tone.Limiter is really
+    // just a fast Compressor, not a true zero-latency brick-wall limiter,
+    // so it can't fully catch a same-sample transient spike on its own —
+    // measured peaks still hit +1dB / clipped samples with only a limiter.
+    // The real fix is headroom: -14dB per voice keeps 5 voices summing in
+    // phase at or below 0dBFS before any dynamics processing even runs.
+    // The compressor+limiter are then just a safety net for the rest.
+    this.compressor = new Tone.Compressor({ threshold: -24, ratio: 4, attack: 0.005, release: 0.15 })
+    this.limiter = new Tone.Limiter(-1).toDestination()
+    this.compressor.connect(this.limiter)
+
+    this.chordSynth = new Tone.PolySynth(Tone.MonoSynth).connect(this.compressor)
+    this.chordSynth.set({ volume: -14 })
+    // Polyphonic even though melody is usually one note at a time: the
+    // piano roll only prevents overlaps on the *same* pitch (so a brief
+    // two-note harmony is allowed), and a monophonic synth's single voice
+    // can't take two simultaneous note-ons without a scheduling crash — its
+    // oscillator gets told to "restart" at a time that isn't after itself.
+    this.melodySynth = new Tone.PolySynth(Tone.MonoSynth).connect(this.compressor)
+    this.melodySynth.set({ volume: -8 })
   }
 
   async play(project: Project): Promise<void> {
@@ -115,6 +131,7 @@ export class PlaybackEngine {
     this.stop()
     this.chordSynth.dispose()
     this.melodySynth.dispose()
-    this.masterBus.dispose()
+    this.compressor.dispose()
+    this.limiter.dispose()
   }
 }
