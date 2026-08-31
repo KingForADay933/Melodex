@@ -5,7 +5,8 @@
 export const DEFAULT_BPM = 100
 export const MIN_BPM = 40
 export const MAX_BPM = 220
-export const BPM_STEP = 5
+export const BPM_FINE_STEP = 1
+export const BPM_COARSE_STEP = 5
 
 /** Every chord in the chord track occupies one 4/4 bar. */
 export const BEATS_PER_BAR = 4
