@@ -1,8 +1,11 @@
-// App-wide constants that aren't user-configurable in Phase 0. Tempo and bar
-// length become real controls in later phases (see project brief); for now
-// they're fixed so playback and export have something to schedule against.
+// App-wide constants. Bar length is still fixed (see project brief roadmap);
+// tempo became a real per-project control in Phase 2.
 
+/** Default tempo for newly-created projects. */
 export const DEFAULT_BPM = 100
+export const MIN_BPM = 40
+export const MAX_BPM = 220
+export const BPM_STEP = 5
 
 /** Every chord in the chord track occupies one 4/4 bar. */
 export const BEATS_PER_BAR = 4

@@ -30,6 +30,26 @@ export interface DiatonicChord {
   noteNames: string[]
 }
 
+/** How a chord is built beyond the plain diatonic triad. */
+export type ChordExtension = 'triad' | 'seventh' | 'ninth' | 'sus2' | 'sus4'
+
+/** A fully-resolved chord: which diatonic degree, with an extension and
+ * inversion applied, spelled correctly for the key. */
+export interface VoicedChord {
+  degree: number
+  extension: ChordExtension
+  /** Which chord tone is in the bass: 0 = root position, 1 = first inversion, etc. */
+  inversion: number
+  quality: ChordQuality
+  root: number
+  rootName: string
+  /** Chord symbol, e.g. "Cmaj7", "Dm7", "Fsus4/C". */
+  symbol: string
+  /** Pitch classes in root position (not inversion order). */
+  pitchClasses: number[]
+  noteNames: string[]
+}
+
 export type ProgressionGenre = 'pop' | 'rock' | 'jazz' | 'lofi' | 'emotional'
 
 /** A named scale-degree pattern, e.g. "Axis Progression" -> [1, 5, 6, 4].

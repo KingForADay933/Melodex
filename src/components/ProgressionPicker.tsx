@@ -1,7 +1,7 @@
 import { COMMON_PROGRESSIONS, getProgressionChords } from '../music-theory'
 import type { MusicKey, ProgressionGenre } from '../music-theory'
 import type { ChordTrackItem } from '../types/project'
-import { createId } from '../utils/id'
+import { createChordTrackItem } from '../utils/createChordTrackItem'
 import { BlueprintCard } from './ui/BlueprintCard'
 
 interface ProgressionPickerProps {
@@ -42,9 +42,7 @@ export function ProgressionPicker({ musicKey, onApply }: ProgressionPickerProps)
                   <button
                     key={preset.id}
                     type="button"
-                    onClick={() =>
-                      onApply(preset.pattern.map((degree) => ({ id: createId('chord'), degree })))
-                    }
+                    onClick={() => onApply(preset.pattern.map(createChordTrackItem))}
                     className="text-left"
                   >
                     <BlueprintCard className="transition-colors hover:border-accent">

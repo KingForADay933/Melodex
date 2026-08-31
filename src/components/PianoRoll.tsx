@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { MELODY_MAX_MIDI, MELODY_MIN_MIDI, STEPS_PER_BAR } from '../constants'
-import { getDiatonicChords, isInScale, noteName } from '../music-theory'
+import { getVoicedChord, isInScale, noteName } from '../music-theory'
 import type { MusicKey } from '../music-theory'
 import type { ChordTrackItem, MelodyNote } from '../types/project'
 import { createId } from '../utils/id'
@@ -30,7 +30,6 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
   }, [])
 
   const steps = useMemo(() => Array.from({ length: totalSteps }, (_, i) => i), [totalSteps])
-  const diatonicChords = getDiatonicChords(musicKey.tonic, musicKey.scale)
   const barCount = Math.max(chords.length, 1)
 
   function noteAt(pitch: number, step: number): MelodyNote | undefined {
@@ -77,11 +76,14 @@ export function PianoRoll({ musicKey, chords, notes, totalSteps, onChange, curre
             />
             {Array.from({ length: barCount }, (_, barIndex) => {
               const chordItem = chords[barIndex]
-              const label = chordItem ? diatonicChords[chordItem.degree - 1].rootName : '—'
+              const label = chordItem
+                ? getVoicedChord(musicKey.tonic, musicKey.scale, chordItem.degree, chordItem.extension, chordItem.inversion)
+                    .symbol
+                : '—'
               return (
                 <div
                   key={barIndex}
-                  className="sticky top-0 z-10 border-r border-b border-slate-200 bg-slate-50 px-1 text-center text-[11px] font-medium text-slate-500"
+                  className="sticky top-0 z-10 truncate border-r border-b border-slate-200 bg-slate-50 px-1 text-center text-[11px] font-medium text-slate-500"
                   style={{ height: HEADER_HEIGHT, gridColumn: `span ${STEPS_PER_BAR}` }}
                 >
                   {label}

@@ -1,6 +1,6 @@
 import * as Tone from 'tone'
-import { CHORD_OCTAVE, DEFAULT_BPM, STEPS_PER_BAR } from '../constants'
-import { getDiatonicChords, pitchClassToMidi } from '../music-theory'
+import { CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
+import { getVoicedChord, voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
 
 function midiToNoteName(midi: number): string {
@@ -41,15 +41,13 @@ export class PlaybackEngine {
 
     if (project.chords.length === 0) return
 
-    Tone.Transport.bpm.value = DEFAULT_BPM
+    Tone.Transport.bpm.value = project.tempo
     const stepDuration = Tone.Time('16n').toSeconds()
     const totalSteps = project.chords.length * STEPS_PER_BAR
 
-    const diatonicChords = getDiatonicChords(project.key.tonic, project.key.scale)
-
     const chordEvents: [number, { notes: string[] }][] = project.chords.map((item, index) => {
-      const chord = diatonicChords[item.degree - 1]
-      const notes = chord.notes.map((pc) => midiToNoteName(pitchClassToMidi(pc, CHORD_OCTAVE)))
+      const voiced = getVoicedChord(project.key.tonic, project.key.scale, item.degree, item.extension, item.inversion)
+      const notes = voiceChordTones(voiced.pitchClasses, CHORD_OCTAVE, item.inversion).map(midiToNoteName)
       return [index * STEPS_PER_BAR * stepDuration, { notes }]
     })
 

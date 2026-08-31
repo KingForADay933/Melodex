@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
 import { downloadProjectMidi } from '../export/midiExport'
+import { downloadProjectZip } from '../export/multiTrackExport'
 import type { Project } from '../types/project'
 import { formatKeyLabel } from '../utils/formatProject'
 
@@ -10,31 +12,53 @@ interface ExportScreenProps {
 }
 
 export function ExportScreen({ project }: ExportScreenProps) {
+  const [isZipping, setIsZipping] = useState(false)
   const hasContent = project.chords.length > 0 || project.melody.length > 0
+
+  async function handleZipExport() {
+    setIsZipping(true)
+    try {
+      await downloadProjectZip(project)
+    } finally {
+      setIsZipping(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
       <ScreenHeader title="Export" subtitle={formatKeyLabel(project)} />
       <GuidanceTip>
-        Exporting gives you a MIDI file you can drop straight into any DAW to keep producing.
+        A single MIDI file drops straight into any DAW. The zip splits chords and melody into
+        separate tracks if you want to produce them independently.
       </GuidanceTip>
 
       <BlueprintCard>
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Project</div>
         <div className="mt-1 text-lg font-semibold text-slate-800">{project.name}</div>
         <div className="text-sm text-slate-500">
-          {formatKeyLabel(project)} · {project.chords.length} chords · {project.melody.length} notes
+          {formatKeyLabel(project)} · {project.tempo} BPM · {project.chords.length} chords ·{' '}
+          {project.melody.length} notes
         </div>
       </BlueprintCard>
 
-      <button
-        type="button"
-        onClick={() => downloadProjectMidi(project)}
-        disabled={!hasContent}
-        className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
-      >
-        Export MIDI
-      </button>
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => downloadProjectMidi(project)}
+          disabled={!hasContent}
+          className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+        >
+          Export MIDI
+        </button>
+        <button
+          type="button"
+          onClick={handleZipExport}
+          disabled={!hasContent || isZipping}
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
+        >
+          {isZipping ? 'Zipping…' : 'Export Multi-track (.zip)'}
+        </button>
+      </div>
     </div>
   )
 }

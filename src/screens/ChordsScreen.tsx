@@ -3,21 +3,22 @@ import { ChordTrack } from '../components/ChordTrack'
 import { ProgressionPicker } from '../components/ProgressionPicker'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
+import type { HistoryControls } from '../navigation/types'
 import type { ChordTrackItem, Project } from '../types/project'
 import { formatScreenSubtitle } from '../utils/formatProject'
 
-interface ChordsScreenProps {
+interface ChordsScreenProps extends HistoryControls {
   project: Project
   onChordsChange: (chords: ChordTrackItem[]) => void
   activeIndex: number | null
 }
 
-export function ChordsScreen({ project, onChordsChange, activeIndex }: ChordsScreenProps) {
+export function ChordsScreen({ project, onChordsChange, activeIndex, ...history }: ChordsScreenProps) {
   const [showPicker, setShowPicker] = useState(project.chords.length === 0)
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Chord Track" subtitle={formatScreenSubtitle(project)} />
+      <ScreenHeader title="Chord Track" subtitle={formatScreenSubtitle(project)} {...history} />
       <GuidanceTip>
         This is your song&rsquo;s chord sequence. Use the arrows to reorder, or tap a roman
         numeral below to add another chord from your key.

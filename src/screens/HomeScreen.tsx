@@ -1,8 +1,9 @@
-import type { MouseEvent } from 'react'
+import { useState } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
-import { PlusIcon } from '../components/ui/icons'
+import { PencilIcon, PlusIcon } from '../components/ui/icons'
 import type { Project } from '../types/project'
 import { formatKeyLabel } from '../utils/formatProject'
 
@@ -13,6 +14,7 @@ interface HomeScreenProps {
   onOpen: (id: string) => void
   onNew: () => void
   onDelete: (id: string) => void
+  onRename: (id: string, name: string) => void
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -24,12 +26,35 @@ function formatRelativeTime(timestamp: number): string {
   return `${Math.round(diffHours / 24)}d ago`
 }
 
-export function HomeScreen({ projects, onOpen, onNew, onDelete }: HomeScreenProps) {
+export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename }: HomeScreenProps) {
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [nameDraft, setNameDraft] = useState('')
+
   function handleDelete(project: Project, event: MouseEvent) {
     event.stopPropagation()
     if (window.confirm(`Delete "${project.name}"? This can't be undone.`)) {
       onDelete(project.id)
     }
+  }
+
+  function startRename(project: Project, event: MouseEvent) {
+    event.stopPropagation()
+    setNameDraft(project.name)
+    setRenamingId(project.id)
+  }
+
+  function commitRename(id: string) {
+    const trimmed = nameDraft.trim()
+    onRename(id, trimmed.length > 0 ? trimmed : 'Untitled sketch')
+    setRenamingId(null)
+  }
+
+  function handleRenameKeyDown(id: string, event: KeyboardEvent<HTMLInputElement>) {
+    // Stop Enter/Space from bubbling to the card's own keydown handler,
+    // which would otherwise open the project right after renaming it.
+    event.stopPropagation()
+    if (event.key === 'Enter') commitRename(id)
+    if (event.key === 'Escape') setRenamingId(null)
   }
 
   return (
@@ -54,8 +79,8 @@ export function HomeScreen({ projects, onOpen, onNew, onDelete }: HomeScreenProp
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Recent</h2>
           <div className="space-y-2">
             {projects.map((project) => (
-              // A <button> can't contain a nested <button> (the delete
-              // control), so the card itself is a div acting as a button.
+              // A <button> can't contain nested <button>s (rename/delete),
+              // so the card itself is a div acting as a button.
               <div
                 key={project.id}
                 role="button"
@@ -71,22 +96,44 @@ export function HomeScreen({ projects, onOpen, onNew, onDelete }: HomeScreenProp
               >
                 <BlueprintCard className="hover:border-accent">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-slate-800">{project.name}</div>
+                    <div className="min-w-0 flex-1">
+                      {renamingId === project.id ? (
+                        <input
+                          autoFocus
+                          value={nameDraft}
+                          onChange={(e) => setNameDraft(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onBlur={() => commitRename(project.id)}
+                          onKeyDown={(e) => handleRenameKeyDown(project.id, e)}
+                          className="w-full rounded-md border border-accent px-1.5 py-0.5 text-sm font-semibold text-slate-800 focus:outline-none"
+                        />
+                      ) : (
+                        <div className="truncate font-semibold text-slate-800">{project.name}</div>
+                      )}
                       <div className="text-xs text-slate-400">
                         {formatKeyLabel(project)} · {project.chords.length}{' '}
                         {project.chords.length === 1 ? 'chord' : 'chords'}
                       </div>
                       <div className="text-xs text-slate-400">Updated {formatRelativeTime(project.updatedAt)}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(event) => handleDelete(project, event)}
-                      className="flex-shrink-0 rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
-                      aria-label={`Delete ${project.name}`}
-                    >
-                      ×
-                    </button>
+                    <div className="flex flex-shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(event) => startRename(project, event)}
+                        className="rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent"
+                        aria-label={`Rename ${project.name}`}
+                      >
+                        <PencilIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => handleDelete(project, event)}
+                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                        aria-label={`Delete ${project.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                 </BlueprintCard>
               </div>

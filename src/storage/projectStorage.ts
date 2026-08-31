@@ -1,14 +1,36 @@
-import type { Project } from '../types/project'
+import { DEFAULT_BPM } from '../constants'
+import type { ChordTrackItem, Project } from '../types/project'
 import { createId } from '../utils/id'
 
 const STORAGE_KEY = 'melodex.projects.v1'
 
 type ProjectStore = Record<string, Project>
 
+function normalizeChord(chord: ChordTrackItem): ChordTrackItem {
+  return {
+    ...chord,
+    extension: chord.extension ?? 'triad',
+    inversion: chord.inversion ?? 0,
+  }
+}
+
+/** Fills in fields added by later phases (tempo, chord extension/inversion)
+ * for projects saved by an earlier version of the app, so old localStorage
+ * data keeps working instead of crashing on missing fields. */
+function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    tempo: project.tempo ?? DEFAULT_BPM,
+    chords: project.chords.map(normalizeChord),
+  }
+}
+
 function readStore(): ProjectStore {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as ProjectStore) : {}
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as ProjectStore
+    return Object.fromEntries(Object.entries(parsed).map(([id, project]) => [id, normalizeProject(project)]))
   } catch {
     // Corrupted JSON or localStorage unavailable (private browsing, quota) —
     // treat it as an empty store rather than crashing the app.
@@ -50,6 +72,7 @@ export function createProject(name = 'Untitled sketch'): Project {
     key: { tonic: 0, scale: 'major' },
     chords: [],
     melody: [],
+    tempo: DEFAULT_BPM,
     createdAt: now,
     updatedAt: now,
   }

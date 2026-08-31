@@ -1,7 +1,8 @@
-import { getDiatonicChords } from '../music-theory'
-import type { MusicKey } from '../music-theory'
+import { useState } from 'react'
+import { getDiatonicChords, getToneCount, getVoicedChord } from '../music-theory'
+import type { ChordExtension, MusicKey } from '../music-theory'
 import type { ChordTrackItem } from '../types/project'
-import { createId } from '../utils/id'
+import { createChordTrackItem } from '../utils/createChordTrackItem'
 import { BlueprintCard } from './ui/BlueprintCard'
 
 interface ChordTrackProps {
@@ -12,17 +13,26 @@ interface ChordTrackProps {
   activeIndex?: number | null
 }
 
-const QUALITY_SUFFIX: Record<string, string> = {
-  minor: 'm',
-  diminished: '°',
-  augmented: '+',
+const EXTENSION_OPTIONS: { value: ChordExtension; label: string }[] = [
+  { value: 'triad', label: 'Triad' },
+  { value: 'seventh', label: '7th' },
+  { value: 'ninth', label: '9th' },
+  { value: 'sus2', label: 'Sus2' },
+  { value: 'sus4', label: 'Sus4' },
+]
+
+function inversionLabel(n: number): string {
+  if (n === 0) return 'Root'
+  const suffix = n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'
+  return `${n}${suffix}`
 }
 
 export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: ChordTrackProps) {
   const diatonicChords = getDiatonicChords(musicKey.tonic, musicKey.scale)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const addChord = (degree: number) => {
-    onChange([...chords, { id: createId('chord'), degree }])
+    onChange([...chords, createChordTrackItem(degree)])
   }
 
   const removeChord = (id: string) => {
@@ -38,6 +48,10 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
     onChange(next)
   }
 
+  const updateChord = (id: string, patch: Partial<Pick<ChordTrackItem, 'extension' | 'inversion'>>) => {
+    onChange(chords.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+  }
+
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chord track</h2>
@@ -49,18 +63,26 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
       ) : (
         <div className="space-y-2">
           {chords.map((item, index) => {
-            const chord = diatonicChords[item.degree - 1]
+            const voiced = getVoicedChord(musicKey.tonic, musicKey.scale, item.degree, item.extension, item.inversion)
+            const isExpanded = expandedId === item.id
+            const toneCount = getToneCount(item.extension)
+
             return (
               <BlueprintCard key={item.id} active={activeIndex === index} className="!py-3">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-base font-semibold text-slate-800">
-                      {chord.rootName}
-                      {QUALITY_SUFFIX[chord.quality] ?? ''}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="truncate text-base font-semibold text-slate-800">{voiced.symbol}</div>
+                    <div className="text-xs text-slate-400">
+                      {diatonicChords[item.degree - 1].roman}
+                      {item.extension !== 'triad' && ` · ${EXTENSION_OPTIONS.find((o) => o.value === item.extension)?.label}`}
+                      {item.inversion !== 0 && ` · ${inversionLabel(item.inversion)} inv.`}
                     </div>
-                    <div className="text-xs text-slate-400">{chord.roman}</div>
-                  </div>
-                  <div className="flex items-center gap-1">
+                  </button>
+                  <div className="flex flex-shrink-0 items-center gap-1">
                     <button
                       type="button"
                       onClick={() => moveChord(index, -1)}
@@ -89,6 +111,44 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
                     </button>
                   </div>
                 </div>
+
+                {isExpanded && (
+                  <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {EXTENSION_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => updateChord(item.id, { extension: option.value })}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                            item.extension === option.value
+                              ? 'bg-accent text-white'
+                              : 'border border-slate-200 text-slate-600 hover:bg-accent-soft'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-slate-400">Inversion:</span>
+                      {Array.from({ length: toneCount }, (_, n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => updateChord(item.id, { inversion: n })}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                            item.inversion === n
+                              ? 'bg-accent text-white'
+                              : 'border border-slate-200 text-slate-600 hover:bg-accent-soft'
+                          }`}
+                        >
+                          {inversionLabel(n)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </BlueprintCard>
             )
           })}
