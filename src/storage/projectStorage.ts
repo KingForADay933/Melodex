@@ -1,5 +1,5 @@
 import { DEFAULT_BPM } from '../constants'
-import type { ChordTrackItem, Project } from '../types/project'
+import type { ChordTrackItem, MelodyNote, Project, Section } from '../types/project'
 import { createId } from '../utils/id'
 
 const DEFAULT_CHORD_INSTRUMENT = 'warm'
@@ -7,7 +7,17 @@ const DEFAULT_MELODY_INSTRUMENT = 'pluck'
 
 const STORAGE_KEY = 'melodex.projects.v1'
 
-type ProjectStore = Record<string, Project>
+/** Raw JSON from localStorage may be current-shape, or saved by an earlier
+ * version of the app — pre-Phase-3 projects have `chords`/`melody` at the
+ * top level instead of `sections`, and pre-Phase-2 saves lack tempo/
+ * instrument fields entirely. */
+type StoredProject = Omit<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument'> &
+  Partial<Pick<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument'>> & {
+    chords?: ChordTrackItem[]
+    melody?: MelodyNote[]
+  }
+
+type ProjectStore = Record<string, StoredProject>
 
 function normalizeChord(chord: ChordTrackItem): ChordTrackItem {
   return {
@@ -17,20 +27,29 @@ function normalizeChord(chord: ChordTrackItem): ChordTrackItem {
   }
 }
 
-/** Fills in fields added by later phases (tempo, chord extension/inversion)
- * for projects saved by an earlier version of the app, so old localStorage
- * data keeps working instead of crashing on missing fields. */
-function normalizeProject(project: Project): Project {
+function normalizeSection(section: Section): Section {
+  return { ...section, chords: section.chords.map(normalizeChord) }
+}
+
+/** Fills in fields added by later phases (tempo, chord extension/inversion,
+ * sections) for projects saved by an earlier version of the app, so old
+ * localStorage data keeps working instead of crashing on missing fields. A
+ * pre-Phase-3 project (flat `chords`/`melody`, no `sections`) is wrapped
+ * into a single implicit "Section 1" rather than migrated destructively. */
+function normalizeProject(project: StoredProject): Project {
+  const { chords: legacyChords, melody: legacyMelody, sections, ...rest } = project
   return {
-    ...project,
-    tempo: project.tempo ?? DEFAULT_BPM,
-    chordInstrument: project.chordInstrument ?? DEFAULT_CHORD_INSTRUMENT,
-    melodyInstrument: project.melodyInstrument ?? DEFAULT_MELODY_INSTRUMENT,
-    chords: project.chords.map(normalizeChord),
+    ...rest,
+    sections: sections
+      ? sections.map(normalizeSection)
+      : [{ id: createId('section'), name: 'Section 1', chords: (legacyChords ?? []).map(normalizeChord), melody: legacyMelody ?? [] }],
+    tempo: rest.tempo ?? DEFAULT_BPM,
+    chordInstrument: rest.chordInstrument ?? DEFAULT_CHORD_INSTRUMENT,
+    melodyInstrument: rest.melodyInstrument ?? DEFAULT_MELODY_INSTRUMENT,
   }
 }
 
-function readStore(): ProjectStore {
+function readStore(): Record<string, Project> {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return {}
@@ -43,7 +62,7 @@ function readStore(): ProjectStore {
   }
 }
 
-function writeStore(store: ProjectStore): void {
+function writeStore(store: Record<string, Project>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
 }
 
@@ -75,8 +94,7 @@ export function createProject(name = 'Untitled sketch'): Project {
     id: createId('project'),
     name,
     key: { tonic: 0, scale: 'major' },
-    chords: [],
-    melody: [],
+    sections: [{ id: createId('section'), name: 'Section 1', chords: [], melody: [] }],
     tempo: DEFAULT_BPM,
     chordInstrument: DEFAULT_CHORD_INSTRUMENT,
     melodyInstrument: DEFAULT_MELODY_INSTRUMENT,

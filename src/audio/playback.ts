@@ -3,6 +3,7 @@ import { CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
 import { voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
 import { resolveChord } from '../utils/resolveChord'
+import { flattenChords, flattenMelody, getProjectTotalSteps } from '../utils/sections'
 import type { InstrumentId } from './instruments'
 import { INSTRUMENT_PRESETS } from './instruments'
 
@@ -77,26 +78,27 @@ export class PlaybackEngine {
     await Tone.start()
     this.resetTransport()
 
-    if (project.chords.length === 0) return
+    const flatChords = flattenChords(project.sections)
+    if (flatChords.length === 0) return
 
     applyInstrument(this.chordSynth, project.chordInstrument)
     applyInstrument(this.melodySynth, project.melodyInstrument)
 
     Tone.Transport.bpm.value = project.tempo
     const stepDuration = Tone.Time('16n').toSeconds()
-    const totalSteps = project.chords.length * STEPS_PER_BAR
+    const totalSteps = getProjectTotalSteps(project.sections)
 
-    const chordEvents: [number, { notes: string[] }][] = project.chords.map((item, index) => {
+    const chordEvents: [number, { notes: string[] }][] = flatChords.map(({ item, barIndex }) => {
       const voiced = resolveChord(project.key, item)
       const notes = voiceChordTones(voiced.pitchClasses, CHORD_OCTAVE, item.inversion).map(midiToNoteName)
-      return [index * STEPS_PER_BAR * stepDuration, { notes }]
+      return [barIndex * STEPS_PER_BAR * stepDuration, { notes }]
     })
 
     this.chordPart = new Tone.Part((time, event) => {
       this.chordSynth.triggerAttackRelease(event.notes, STEPS_PER_BAR * stepDuration * 0.95, time)
     }, chordEvents).start(0)
 
-    const melodyEvents: [number, { note: string; duration: number }][] = project.melody.map((note) => [
+    const melodyEvents: [number, { note: string; duration: number }][] = flattenMelody(project.sections).map((note) => [
       note.startStep * stepDuration,
       { note: midiToNoteName(note.pitch), duration: note.lengthSteps * stepDuration * 0.9 },
     ])
