@@ -7,11 +7,38 @@ import { sanitizeFilename, triggerDownload } from './downloadHelpers'
 
 type MidiTrack = ReturnType<Midi['addTrack']>
 
+export interface ExportOptions {
+  filename?: string
+  /** Adds subtle random timing/velocity variation so the export doesn't
+   * sound perfectly quantized when dropped into a DAW. Off by default so
+   * existing exports are unaffected unless explicitly opted in. */
+  humanize?: boolean
+}
+
 function secondsPerStep(tempo: number): number {
   return (60 / tempo) * (BEATS_PER_BAR / STEPS_PER_BAR)
 }
 
-function addChordNotes(track: MidiTrack, project: Project): void {
+const HUMANIZE_TIME_JITTER_RATIO = 0.15
+const HUMANIZE_VELOCITY_JITTER = 0.08
+const HUMANIZE_MIN_VELOCITY = 0.4
+const HUMANIZE_MAX_VELOCITY = 1
+
+/** Nudges a note's time/velocity by a small random amount, tempo-relative
+ * (jitter is a fraction of one step's duration) so the feel scales with
+ * tempo instead of always jittering by a fixed number of seconds. */
+function applyHumanize(time: number, velocity: number, stepSeconds: number): { time: number; velocity: number } {
+  const timeJitter = stepSeconds * HUMANIZE_TIME_JITTER_RATIO
+  return {
+    time: Math.max(0, time + (Math.random() * 2 - 1) * timeJitter),
+    velocity: Math.min(
+      HUMANIZE_MAX_VELOCITY,
+      Math.max(HUMANIZE_MIN_VELOCITY, velocity + (Math.random() * 2 - 1) * HUMANIZE_VELOCITY_JITTER),
+    ),
+  }
+}
+
+function addChordNotes(track: MidiTrack, project: Project, options: ExportOptions): void {
   const stepSize = secondsPerStep(project.tempo)
   const duration = STEPS_PER_BAR * stepSize
 
@@ -20,60 +47,58 @@ function addChordNotes(track: MidiTrack, project: Project): void {
     const midiNotes = voiceChordTones(voiced.pitchClasses, CHORD_OCTAVE, item.inversion)
     const startTime = index * STEPS_PER_BAR * stepSize
     for (const midi of midiNotes) {
-      track.addNote({ midi, time: startTime, duration, velocity: 0.8 })
+      const { time, velocity } = options.humanize ? applyHumanize(startTime, 0.8, stepSize) : { time: startTime, velocity: 0.8 }
+      track.addNote({ midi, time, duration, velocity })
     }
   })
 }
 
-function addMelodyNotes(track: MidiTrack, project: Project): void {
+function addMelodyNotes(track: MidiTrack, project: Project, options: ExportOptions): void {
   const stepSize = secondsPerStep(project.tempo)
   for (const note of project.melody) {
-    track.addNote({
-      midi: note.pitch,
-      time: note.startStep * stepSize,
-      duration: note.lengthSteps * stepSize,
-      velocity: 0.9,
-    })
+    const startTime = note.startStep * stepSize
+    const { time, velocity } = options.humanize ? applyHumanize(startTime, 0.9, stepSize) : { time: startTime, velocity: 0.9 }
+    track.addNote({ midi: note.pitch, time, duration: note.lengthSteps * stepSize, velocity })
   }
 }
 
 /** Two-track MIDI file (chords + melody) combined — the single-file export. */
-export function buildProjectMidi(project: Project): Midi {
+export function buildProjectMidi(project: Project, options: ExportOptions = {}): Midi {
   const midi = new Midi()
   midi.header.setTempo(project.tempo)
 
   const chordTrack = midi.addTrack()
   chordTrack.name = 'Chords'
   chordTrack.instrument.number = INSTRUMENT_PRESETS[project.chordInstrument].midiProgram
-  addChordNotes(chordTrack, project)
+  addChordNotes(chordTrack, project, options)
 
   const melodyTrack = midi.addTrack()
   melodyTrack.name = 'Melody'
   melodyTrack.instrument.number = INSTRUMENT_PRESETS[project.melodyInstrument].midiProgram
-  addMelodyNotes(melodyTrack, project)
+  addMelodyNotes(melodyTrack, project, options)
 
   return midi
 }
 
 /** Single-track MIDI file with just the chords — used by the multi-track zip export. */
-export function buildChordsOnlyMidi(project: Project): Midi {
+export function buildChordsOnlyMidi(project: Project, options: ExportOptions = {}): Midi {
   const midi = new Midi()
   midi.header.setTempo(project.tempo)
   const track = midi.addTrack()
   track.name = 'Chords'
   track.instrument.number = INSTRUMENT_PRESETS[project.chordInstrument].midiProgram
-  addChordNotes(track, project)
+  addChordNotes(track, project, options)
   return midi
 }
 
 /** Single-track MIDI file with just the melody — used by the multi-track zip export. */
-export function buildMelodyOnlyMidi(project: Project): Midi {
+export function buildMelodyOnlyMidi(project: Project, options: ExportOptions = {}): Midi {
   const midi = new Midi()
   midi.header.setTempo(project.tempo)
   const track = midi.addTrack()
   track.name = 'Melody'
   track.instrument.number = INSTRUMENT_PRESETS[project.melodyInstrument].midiProgram
-  addMelodyNotes(track, project)
+  addMelodyNotes(track, project, options)
   return midi
 }
 
@@ -88,7 +113,8 @@ export function midiToArrayBuffer(midi: Midi): ArrayBuffer {
 }
 
 /** Builds the project's combined MIDI file and triggers a browser download. */
-export function downloadProjectMidi(project: Project, filename = `${sanitizeFilename(project.name)}.mid`): void {
-  const blob = new Blob([midiToArrayBuffer(buildProjectMidi(project))], { type: 'audio/midi' })
+export function downloadProjectMidi(project: Project, options: ExportOptions = {}): void {
+  const filename = options.filename ?? `${sanitizeFilename(project.name)}.mid`
+  const blob = new Blob([midiToArrayBuffer(buildProjectMidi(project, options))], { type: 'audio/midi' })
   triggerDownload(blob, filename)
 }

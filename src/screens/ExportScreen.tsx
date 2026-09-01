@@ -13,12 +13,13 @@ interface ExportScreenProps {
 
 export function ExportScreen({ project }: ExportScreenProps) {
   const [isZipping, setIsZipping] = useState(false)
+  const [humanize, setHumanize] = useState(false)
   const hasContent = project.chords.length > 0 || project.melody.length > 0
 
   async function handleZipExport() {
     setIsZipping(true)
     try {
-      await downloadProjectZip(project)
+      await downloadProjectZip(project, { humanize })
     } finally {
       setIsZipping(false)
     }
@@ -41,10 +42,24 @@ export function ExportScreen({ project }: ExportScreenProps) {
         </div>
       </BlueprintCard>
 
+      <button
+        type="button"
+        onClick={() => setHumanize((v) => !v)}
+        aria-pressed={humanize}
+        className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-medium ${
+          humanize ? 'border-accent bg-accent-soft text-accent' : 'border-slate-200 bg-white text-slate-600 hover:bg-accent-soft'
+        }`}
+      >
+        Humanize timing &amp; velocity
+        <span className="block text-xs font-normal text-slate-400">
+          Adds subtle random variation so the export doesn&rsquo;t sound perfectly quantized.
+        </span>
+      </button>
+
       <div className="space-y-2">
         <button
           type="button"
-          onClick={() => downloadProjectMidi(project)}
+          onClick={() => downloadProjectMidi(project, { humanize })}
           disabled={!hasContent}
           className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
         >

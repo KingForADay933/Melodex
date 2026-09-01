@@ -4,8 +4,8 @@ import { InstrumentPicker } from '../components/InstrumentPicker'
 import { PianoRoll } from '../components/PianoRoll'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
-import { ARPEGGIO_PATTERNS, generateArpeggio } from '../melody/arpeggiator'
-import type { ArpeggioPattern } from '../melody/arpeggiator'
+import { ARPEGGIO_PATTERNS, generateArpeggio, RHYTHM_TEMPLATES } from '../melody/arpeggiator'
+import type { ArpeggioPattern, RhythmTemplate } from '../melody/arpeggiator'
 import type { HistoryControls } from '../navigation/types'
 import type { MelodyNote, Project } from '../types/project'
 import { formatScreenSubtitle } from '../utils/formatProject'
@@ -29,13 +29,14 @@ export function MelodyScreen({
   ...history
 }: MelodyScreenProps) {
   const [scaleLock, setScaleLock] = useState(false)
+  const [rhythm, setRhythm] = useState<RhythmTemplate>(RHYTHM_TEMPLATES[0])
 
   function applyArpeggio(pattern: ArpeggioPattern) {
     if (project.chords.length === 0) return
     if (project.melody.length > 0 && !window.confirm('Replace the current melody with a generated arpeggio?')) {
       return
     }
-    onMelodyChange(generateArpeggio(project, pattern))
+    onMelodyChange(generateArpeggio(project, pattern, rhythm))
   }
 
   return (
@@ -59,6 +60,25 @@ export function MelodyScreen({
             className="rounded-md border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-accent hover:text-accent disabled:opacity-40"
           >
             {pattern.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-slate-400">Rhythm:</span>
+        {RHYTHM_TEMPLATES.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => setRhythm(template)}
+            aria-pressed={rhythm.id === template.id}
+            className={`rounded-md border px-2.5 py-1 text-xs ${
+              rhythm.id === template.id
+                ? 'border-accent bg-accent text-white'
+                : 'border-dashed border-slate-300 text-slate-500 hover:border-accent hover:text-accent'
+            }`}
+          >
+            {template.label}
           </button>
         ))}
       </div>

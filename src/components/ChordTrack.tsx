@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { getDiatonicChords, getToneCount, getVoicedChord } from '../music-theory'
+import { useGuidance } from '../guidance/GuidanceContext'
+import { getDiatonicChords, getToneCount, getVoicedChord, suggestNextDegrees } from '../music-theory'
 import type { ChordExtension, MusicKey } from '../music-theory'
 import type { ChordTrackItem } from '../types/project'
 import { createChordTrackItem } from '../utils/createChordTrackItem'
@@ -30,6 +31,9 @@ function inversionLabel(n: number): string {
 export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: ChordTrackProps) {
   const diatonicChords = getDiatonicChords(musicKey.tonic, musicKey.scale)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { enabled: guidanceEnabled } = useGuidance()
+  const lastDegree = chords.length > 0 ? chords[chords.length - 1].degree : null
+  const suggestedDegrees = guidanceEnabled ? suggestNextDegrees(lastDegree) : []
 
   const addChord = (degree: number) => {
     onChange([...chords, createChordTrackItem(degree)])
@@ -156,16 +160,23 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
       )}
 
       <div className="flex flex-wrap gap-2">
-        {diatonicChords.map((chord) => (
-          <button
-            key={chord.degree}
-            type="button"
-            onClick={() => addChord(chord.degree)}
-            className="rounded-lg border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-accent hover:text-accent"
-          >
-            + {chord.roman}
-          </button>
-        ))}
+        {diatonicChords.map((chord) => {
+          const isSuggested = suggestedDegrees.includes(chord.degree)
+          return (
+            <button
+              key={chord.degree}
+              type="button"
+              onClick={() => addChord(chord.degree)}
+              className={`rounded-lg border px-2.5 py-1 text-xs ${
+                isSuggested
+                  ? 'border-accent text-accent ring-1 ring-accent/40 hover:bg-accent-soft'
+                  : 'border-dashed border-slate-300 text-slate-500 hover:border-accent hover:text-accent'
+              }`}
+            >
+              + {chord.roman}
+            </button>
+          )
+        })}
       </div>
     </section>
   )

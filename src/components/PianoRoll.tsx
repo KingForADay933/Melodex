@@ -26,13 +26,24 @@ interface PianoRollProps {
 // New notes start at a fixed length; the grip handle on the last cell of a
 // note is how the user changes that afterward.
 const DEFAULT_NOTE_LENGTH_STEPS = 2
-const CELL_WIDTH = 22
+// Column width is adjustable (zoom); row height stays fixed — there's no
+// pitch/vertical zoom, only time/horizontal.
+const ZOOM_LEVELS = [16, 22, 32, 44]
+const DEFAULT_ZOOM_INDEX = 1 // 22px, today's fixed width
 const CELL_HEIGHT = 18
 const HEADER_HEIGHT = 22
 const RESIZE_HANDLE_WIDTH = 8
 // Pointer movement (px) before a press-on-a-note is treated as a drag rather
 // than a click-to-remove.
 const DRAG_THRESHOLD_PX = 4
+// Drag-move/resize rounds to whole-step increments by default (1/16 note);
+// selecting a coarser snap value rounds to multiples of it instead.
+const SNAP_OPTIONS: { steps: number; label: string }[] = [
+  { steps: 4, label: '1/4' },
+  { steps: 2, label: '1/8' },
+  { steps: 1, label: '1/16' },
+]
+const DEFAULT_SNAP_STEPS = 1
 
 interface ResizeState {
   noteId: string
@@ -94,6 +105,9 @@ export function PianoRoll({
 }: PianoRollProps) {
   const [resizing, setResizing] = useState<ResizeState | null>(null)
   const [moving, setMoving] = useState<MoveState | null>(null)
+  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX)
+  const [snapSteps, setSnapSteps] = useState(DEFAULT_SNAP_STEPS)
+  const cellWidth = ZOOM_LEVELS[zoomIndex]
   // Set (synchronously, ahead of React state) as soon as a press-on-a-note
   // crosses the drag threshold, so the synthetic click that follows
   // pointerup on the same interaction can be told apart from a real click.
@@ -162,7 +176,7 @@ export function PianoRoll({
     const maxLength = getMaxLength(note.pitch, note.startStep, notes, note.id, totalSteps)
 
     function handleMove(moveEvent: PointerEvent) {
-      const deltaSteps = Math.round((moveEvent.clientX - state.pointerStartX) / CELL_WIDTH)
+      const deltaSteps = Math.round((moveEvent.clientX - state.pointerStartX) / cellWidth / snapSteps) * snapSteps
       previewLength = Math.min(maxLength, Math.max(1, state.startLength + deltaSteps))
       setResizing((prev) => (prev && prev.noteId === state.noteId ? { ...prev, previewLength } : prev))
     }
@@ -210,7 +224,7 @@ export function PianoRoll({
         didDragRef.current = true
         setMoving(state)
       }
-      const deltaSteps = Math.round(deltaX / CELL_WIDTH)
+      const deltaSteps = Math.round(deltaX / cellWidth / snapSteps) * snapSteps
       const deltaPitchSteps = Math.round(deltaY / CELL_HEIGHT)
       previewStartStep = Math.min(Math.max(0, state.startStep + deltaSteps), totalSteps - state.length)
       // Pitches climb as MIDI numbers increase, but rows climb as the
@@ -264,8 +278,48 @@ export function PianoRoll({
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-1">
+          <span className="text-slate-400">Zoom:</span>
+          <button
+            type="button"
+            onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+            disabled={zoomIndex === 0}
+            aria-label="Zoom out"
+            className="rounded-md border border-slate-200 px-2 py-1 font-medium hover:bg-accent-soft disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoomIndex((i) => Math.min(ZOOM_LEVELS.length - 1, i + 1))}
+            disabled={zoomIndex === ZOOM_LEVELS.length - 1}
+            aria-label="Zoom in"
+            className="rounded-md border border-slate-200 px-2 py-1 font-medium hover:bg-accent-soft disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            +
+          </button>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-slate-400">Snap:</span>
+          {SNAP_OPTIONS.map((option) => (
+            <button
+              key={option.steps}
+              type="button"
+              onClick={() => setSnapSteps(option.steps)}
+              aria-pressed={snapSteps === option.steps}
+              className={`rounded-md px-2 py-1 font-medium ${
+                snapSteps === option.steps ? 'bg-accent text-white' : 'border border-slate-200 hover:bg-accent-soft'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="max-h-96 select-none overflow-auto rounded-2xl border border-slate-200 bg-white">
-        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${totalSteps}, ${CELL_WIDTH}px)` }}>
+        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${totalSteps}, ${cellWidth}px)` }}>
           <div className="contents">
             <div
               className="sticky left-0 top-0 z-30 border-r border-b border-slate-200 bg-slate-50"
@@ -355,7 +409,7 @@ export function PianoRoll({
                         isLocked ? 'cursor-not-allowed opacity-50' : '',
                         isCurrentStep ? 'ring-1 ring-inset ring-amber-400' : '',
                       ].join(' ')}
-                      style={{ width: CELL_WIDTH, height: CELL_HEIGHT, touchAction: note ? 'none' : undefined }}
+                      style={{ width: cellWidth, height: CELL_HEIGHT, touchAction: note ? 'none' : undefined }}
                     >
                       {note && isNoteStart && (
                         <span

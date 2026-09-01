@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { STEPS_PER_BAR } from '../constants'
 import type { Project } from '../types/project'
-import { generateArpeggio } from './arpeggiator'
+import { generateArpeggio, RHYTHM_TEMPLATES } from './arpeggiator'
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -79,5 +79,30 @@ describe('generateArpeggio', () => {
     const notes = generateArpeggio(project, 'random')
     const validPitchClasses = new Set([0, 4, 7])
     expect(notes.every((n) => validPitchClasses.has(n.pitch % 12))).toBe(true)
+  })
+
+  it('defaults to the "Steady 8ths" rhythm template when none is given', () => {
+    const project = makeProject()
+    const withoutId = (notes: ReturnType<typeof generateArpeggio>) =>
+      notes.map(({ pitch, startStep, lengthSteps }) => ({ pitch, startStep, lengthSteps }))
+    const withDefault = withoutId(generateArpeggio(project, 'up'))
+    const withExplicitFirst = withoutId(generateArpeggio(project, 'up', RHYTHM_TEMPLATES[0]))
+    expect(withDefault).toEqual(withExplicitFirst)
+  })
+
+  describe.each(RHYTHM_TEMPLATES)('rhythm template "$id"', (rhythm) => {
+    it('tiles each bar with no gaps or overlap', () => {
+      const project = makeProject()
+      const notes = generateArpeggio(project, 'up', rhythm)
+      expect(notes).toHaveLength(rhythm.slots.length)
+
+      const sorted = [...notes].sort((a, b) => a.startStep - b.startStep)
+      let expectedNextStep = 0
+      for (const note of sorted) {
+        expect(note.startStep).toBe(expectedNextStep)
+        expectedNextStep += note.lengthSteps
+      }
+      expect(expectedNextStep).toBe(STEPS_PER_BAR)
+    })
   })
 })
