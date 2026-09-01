@@ -42,7 +42,7 @@ export function ProgressionPicker({ musicKey, onApply }: ProgressionPickerProps)
                   <button
                     key={preset.id}
                     type="button"
-                    onClick={() => onApply(preset.pattern.map(createChordTrackItem))}
+                    onClick={() => onApply(preset.pattern.map((degree) => createChordTrackItem(degree)))}
                     className="text-left"
                   >
                     <BlueprintCard className="transition-colors hover:border-accent">

@@ -1,8 +1,9 @@
 import { Midi } from '@tonejs/midi'
 import { INSTRUMENT_PRESETS } from '../audio/instruments'
 import { BEATS_PER_BAR, CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
-import { getVoicedChord, voiceChordTones } from '../music-theory'
+import { voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
+import { resolveChord } from '../utils/resolveChord'
 import { sanitizeFilename, triggerDownload } from './downloadHelpers'
 
 type MidiTrack = ReturnType<Midi['addTrack']>
@@ -43,7 +44,7 @@ function addChordNotes(track: MidiTrack, project: Project, options: ExportOption
   const duration = STEPS_PER_BAR * stepSize
 
   project.chords.forEach((item, index) => {
-    const voiced = getVoicedChord(project.key.tonic, project.key.scale, item.degree, item.extension, item.inversion)
+    const voiced = resolveChord(project.key, item)
     const midiNotes = voiceChordTones(voiced.pitchClasses, CHORD_OCTAVE, item.inversion)
     const startTime = index * STEPS_PER_BAR * stepSize
     for (const midi of midiNotes) {

@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { MELODY_MAX_MIDI, MELODY_MIN_MIDI, STEPS_PER_BAR } from '../constants'
-import { getVoicedChord, isInScale, noteName } from '../music-theory'
+import { isInScale, noteName } from '../music-theory'
 import type { MusicKey } from '../music-theory'
 import type { ChordTrackItem, MelodyNote } from '../types/project'
 import { createId } from '../utils/id'
+import { resolveChord } from '../utils/resolveChord'
 
 interface PianoRollProps {
   musicKey: MusicKey
@@ -327,10 +328,7 @@ export function PianoRoll({
             />
             {Array.from({ length: barCount }, (_, barIndex) => {
               const chordItem = chords[barIndex]
-              const label = chordItem
-                ? getVoicedChord(musicKey.tonic, musicKey.scale, chordItem.degree, chordItem.extension, chordItem.inversion)
-                    .symbol
-                : '—'
+              const label = chordItem ? resolveChord(musicKey, chordItem).symbol : '—'
               return (
                 <div
                   key={barIndex}

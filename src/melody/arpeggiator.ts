@@ -1,7 +1,8 @@
 import { STEPS_PER_BAR } from '../constants'
-import { getVoicedChord, pitchClassToMidi } from '../music-theory'
+import { pitchClassToMidi } from '../music-theory'
 import type { MelodyNote, Project } from '../types/project'
 import { createId } from '../utils/id'
+import { resolveChord } from '../utils/resolveChord'
 
 export type ArpeggioPattern = 'up' | 'down' | 'upDown' | 'random'
 
@@ -99,7 +100,7 @@ export function generateArpeggio(
   const notes: MelodyNote[] = []
 
   project.chords.forEach((chordItem, barIndex) => {
-    const voiced = getVoicedChord(project.key.tonic, project.key.scale, chordItem.degree, chordItem.extension, chordItem.inversion)
+    const voiced = resolveChord(project.key, chordItem)
     const toneCount = voiced.pitchClasses.length
     const patternIndices = buildPatternIndices(toneCount, pattern)
 

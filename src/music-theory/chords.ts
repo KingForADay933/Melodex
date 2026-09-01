@@ -1,5 +1,5 @@
 import { noteName } from './notes'
-import { SCALES } from './scales'
+import { parallelScale, SCALES } from './scales'
 import type { ChordQuality, DiatonicChord, ScaleType } from './types'
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
@@ -28,7 +28,7 @@ export function classifyTriad(thirdSemitones: number, fifthSemitones: number): C
   return 'major'
 }
 
-function toRomanNumeral(degree: number, quality: ChordQuality): string {
+export function toRomanNumeral(degree: number, quality: ChordQuality): string {
   const base = ROMAN_NUMERALS[degree - 1]
   switch (quality) {
     case 'minor':
@@ -78,4 +78,17 @@ export function getDiatonicChord(tonic: number, scale: ScaleType, degree: number
     throw new Error(`Scale degree ${degree} is out of range for a 7-note scale`)
   }
   return chord
+}
+
+/** Roman numeral for a modal-interchange ("borrowed") chord: the same
+ * degree resolved against the parallel scale, prefixed with an accidental
+ * when its root differs from the home scale's chord at that degree (major
+ * and natural minor differ by exactly one semitone, always flat-relative-to
+ * -major, at scale degrees 3/6/7 — and symmetrically sharp in reverse). */
+export function getBorrowedRomanNumeral(tonic: number, scale: ScaleType, degree: number): string {
+  const home = getDiatonicChord(tonic, scale, degree)
+  const borrowed = getDiatonicChord(tonic, parallelScale(scale), degree)
+  const diff = (((borrowed.root - home.root) % 12) + 12) % 12
+  const accidental = diff === 11 ? '♭' : diff === 1 ? '♯' : ''
+  return accidental + toRomanNumeral(degree, borrowed.quality)
 }

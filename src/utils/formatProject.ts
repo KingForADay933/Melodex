@@ -1,5 +1,6 @@
-import { getDiatonicChords, noteName } from '../music-theory'
+import { noteName } from '../music-theory'
 import type { Project } from '../types/project'
+import { resolveChord } from './resolveChord'
 
 export function formatKeyLabel(project: Project): string {
   const tonicName = noteName(project.key.tonic, project.key.tonic, project.key.scale)
@@ -9,8 +10,7 @@ export function formatKeyLabel(project: Project): string {
 
 export function formatProgressionLabel(project: Project): string {
   if (project.chords.length === 0) return 'No chords yet'
-  const diatonicChords = getDiatonicChords(project.key.tonic, project.key.scale)
-  return project.chords.map((c) => diatonicChords[c.degree - 1].roman).join(' – ')
+  return project.chords.map((c) => resolveChord(project.key, c).roman).join(' – ')
 }
 
 /** e.g. "F# Minor · i – VI – III – VII", used as the subtitle under each screen's title. */

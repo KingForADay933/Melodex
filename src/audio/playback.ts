@@ -1,7 +1,8 @@
 import * as Tone from 'tone'
 import { CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
-import { getVoicedChord, voiceChordTones } from '../music-theory'
+import { voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
+import { resolveChord } from '../utils/resolveChord'
 import type { InstrumentId } from './instruments'
 import { INSTRUMENT_PRESETS } from './instruments'
 
@@ -86,7 +87,7 @@ export class PlaybackEngine {
     const totalSteps = project.chords.length * STEPS_PER_BAR
 
     const chordEvents: [number, { notes: string[] }][] = project.chords.map((item, index) => {
-      const voiced = getVoicedChord(project.key.tonic, project.key.scale, item.degree, item.extension, item.inversion)
+      const voiced = resolveChord(project.key, item)
       const notes = voiceChordTones(voiced.pitchClasses, CHORD_OCTAVE, item.inversion).map(midiToNoteName)
       return [index * STEPS_PER_BAR * stepDuration, { notes }]
     })

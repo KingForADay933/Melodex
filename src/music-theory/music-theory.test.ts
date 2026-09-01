@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getDiatonicChords } from './chords'
+import { getBorrowedRomanNumeral, getDiatonicChords } from './chords'
 import { noteName, pitchClassToMidi } from './notes'
 import { COMMON_PROGRESSIONS, getProgressionChords } from './progressions'
 import { getScaleNotes, isInScale } from './scales'
@@ -75,6 +75,27 @@ describe('getDiatonicChords', () => {
     // IV chord in F major is Bb major, not A# major
     expect(chords[3].rootName).toBe('Bb')
     expect(chords[3].noteNames).toEqual(['Bb', 'D', 'F'])
+  })
+})
+
+describe('getBorrowedRomanNumeral', () => {
+  it('flags root-shifted borrowed chords (major key borrowing from natural minor) with a flat', () => {
+    // C major borrowing from C minor: iii->bIII, vi->bVI, vii°->bVII
+    expect(getBorrowedRomanNumeral(0, 'major', 3)).toBe('♭III')
+    expect(getBorrowedRomanNumeral(0, 'major', 6)).toBe('♭VI')
+    expect(getBorrowedRomanNumeral(0, 'major', 7)).toBe('♭VII')
+  })
+
+  it('needs no accidental when only the quality changes, not the root', () => {
+    // C major borrowing from C minor: i, iv, v keep the same root, just minor
+    expect(getBorrowedRomanNumeral(0, 'major', 1)).toBe('i')
+    expect(getBorrowedRomanNumeral(0, 'major', 4)).toBe('iv')
+    expect(getBorrowedRomanNumeral(0, 'major', 5)).toBe('v')
+  })
+
+  it('flags root-shifted borrowed chords with a sharp in the reverse direction (minor key borrowing from major)', () => {
+    // A minor borrowing from A major: III->#iii
+    expect(getBorrowedRomanNumeral(9, 'minor', 3)).toBe('♯iii')
   })
 })
 

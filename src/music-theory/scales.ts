@@ -18,3 +18,9 @@ export function isInScale(pitchClass: number, tonic: number, scale: ScaleType): 
   const normalized = ((pitchClass % 12) + 12) % 12
   return getScaleNotes(tonic, scale).includes(normalized)
 }
+
+/** The scale used for modal-interchange ("borrowed") chords: same tonic,
+ * opposite mode. */
+export function parallelScale(scale: ScaleType): ScaleType {
+  return scale === 'major' ? 'minor' : 'major'
+}
