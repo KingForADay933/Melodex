@@ -17,6 +17,8 @@ export function cloneSection(section: Section, name = `${section.name} (copy)`):
     name,
     chords: section.chords.map(cloneChord),
     melody: section.melody.map(cloneNote),
+    bassline: section.bassline.map(cloneNote),
+    harmonyMelody: section.harmonyMelody.map(cloneNote),
   }
 }
 

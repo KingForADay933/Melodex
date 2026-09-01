@@ -9,6 +9,8 @@ function makeSection(overrides: Partial<Section> = {}): Section {
     name: 'Section 1',
     chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }],
     melody: [{ id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 }], // C4
+    bassline: [],
+    harmonyMelody: [],
     ...overrides,
   }
 }
@@ -22,6 +24,8 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     tempo: 100,
     chordInstrument: 'warm',
     melodyInstrument: 'pluck',
+    bassInstrument: 'warm',
+    harmonyInstrument: 'bright',
     createdAt: 0,
     updatedAt: 0,
     ...overrides,
@@ -97,6 +101,20 @@ describe('transposeProject', () => {
     const project = makeProject()
     const result = transposeProject(project, { tonic: 0, scale: 'minor' })
     expect(result.sections[0].melody[0].pitch).toBe(project.sections[0].melody[0].pitch)
+  })
+
+  it('shifts bassline and harmony notes by the same delta as the lead melody', () => {
+    const project = makeProject({
+      sections: [
+        makeSection({
+          bassline: [{ id: 'b1', pitch: 48, startStep: 0, lengthSteps: 2 }],
+          harmonyMelody: [{ id: 'h1', pitch: 72, startStep: 0, lengthSteps: 2 }],
+        }),
+      ],
+    })
+    const result = transposeProject(project, { tonic: 5, scale: 'major' }) // +5 semitones
+    expect(result.sections[0].bassline[0].pitch).toBe(53)
+    expect(result.sections[0].harmonyMelody[0].pitch).toBe(77)
   })
 
   it('shifts melody in every section, not just the first', () => {

@@ -72,6 +72,11 @@ export const RHYTHM_TEMPLATES: RhythmTemplate[] = [
  * arpeggio reads as a lead line over the harmony rather than doubling it. */
 const ARPEGGIO_OCTAVE_OFFSET = 1
 const CHORD_TRACK_BASE_OCTAVE = 4
+/** One octave below the chord track — not two: the piano roll's pitch
+ * range is a fixed window (MELODY_MIN_MIDI..MELODY_MAX_MIDI) with no
+ * dynamic extension, and a lower octave would put bassline notes entirely
+ * outside it, invisible and undraggable in the grid. */
+const BASSLINE_OCTAVE_OFFSET = -1
 
 /** Index order into a chord's tones for one pass of a pattern, e.g. for a
  * 3-tone chord: up = [0,1,2], upDown = [0,1,2,1]. Cycled to fill a bar. */
@@ -86,30 +91,32 @@ function buildPatternIndices(toneCount: number, pattern: ArpeggioPattern): numbe
 }
 
 /**
- * Generates a full melody by arpeggiating each bar's chord in the given
- * contour pattern (which chord tone plays) and rhythm template (when notes
- * fall and how long they last), replacing whatever melody notes were there
- * before. Used by the "auto-fill melody" controls on the Melody screen — a
- * starting point the user can then hand-edit. Scoped to one section's
- * chords at a time (each section has its own melody).
+ * Shared engine behind both generators below: arpeggiates each bar's chord
+ * in the given contour pattern (which of the selected tones plays) and
+ * rhythm template (when notes fall and how long they last). `selectTones`
+ * picks which of a resolved chord's pitch classes are available to the
+ * pattern — the full chord for a melody line, just root+fifth for a
+ * bassline.
  */
-export function generateArpeggio(
+function generateFromChords(
   chords: ChordTrackItem[],
   key: MusicKey,
   pattern: ArpeggioPattern,
-  rhythm: RhythmTemplate = RHYTHM_TEMPLATES[0],
+  rhythm: RhythmTemplate,
+  octave: number,
+  selectTones: (pitchClasses: number[]) => number[],
 ): MelodyNote[] {
-  const octave = CHORD_TRACK_BASE_OCTAVE + ARPEGGIO_OCTAVE_OFFSET
   const notes: MelodyNote[] = []
 
   chords.forEach((chordItem, barIndex) => {
     const voiced = resolveChord(key, chordItem)
-    const toneCount = voiced.pitchClasses.length
+    const tones = selectTones(voiced.pitchClasses)
+    const toneCount = tones.length
     const patternIndices = buildPatternIndices(toneCount, pattern)
 
     rhythm.slots.forEach((slot, i) => {
       const toneIndex = pattern === 'random' ? Math.floor(Math.random() * toneCount) : patternIndices[i % patternIndices.length]
-      const pitch = pitchClassToMidi(voiced.pitchClasses[toneIndex], octave)
+      const pitch = pitchClassToMidi(tones[toneIndex], octave)
       const startStep = barIndex * STEPS_PER_BAR + slot.offsetSteps
 
       notes.push({ id: createId('note'), pitch, startStep, lengthSteps: slot.lengthSteps })
@@ -117,4 +124,38 @@ export function generateArpeggio(
   })
 
   return notes
+}
+
+/**
+ * Generates a full melody by arpeggiating each bar's chord in the given
+ * contour pattern (which chord tone plays) and rhythm template (when notes
+ * fall and how long they last), replacing whatever melody notes were there
+ * before. Used by the "auto-fill melody" controls on the Melody screen — a
+ * starting point the user can then hand-edit. Scoped to one section's
+ * chords at a time. Also used as-is for the harmony layer (there's no
+ * dedicated harmony generator — it's just a second melody).
+ */
+export function generateArpeggio(
+  chords: ChordTrackItem[],
+  key: MusicKey,
+  pattern: ArpeggioPattern,
+  rhythm: RhythmTemplate = RHYTHM_TEMPLATES[0],
+): MelodyNote[] {
+  return generateFromChords(chords, key, pattern, rhythm, CHORD_TRACK_BASE_OCTAVE + ARPEGGIO_OCTAVE_OFFSET, (pcs) => pcs)
+}
+
+/**
+ * Generates a bassline: root+fifth only (index 0 and 2 of a resolved
+ * chord's pitch classes — stable across every ChordExtension, since sus2/
+ * sus4 only ever replace the third at index 1), one octave below the
+ * chord track. Same contour/rhythm controls as generateArpeggio, just a
+ * smaller tone pool and a lower register.
+ */
+export function generateBassline(
+  chords: ChordTrackItem[],
+  key: MusicKey,
+  pattern: ArpeggioPattern,
+  rhythm: RhythmTemplate = RHYTHM_TEMPLATES[0],
+): MelodyNote[] {
+  return generateFromChords(chords, key, pattern, rhythm, CHORD_TRACK_BASE_OCTAVE + BASSLINE_OCTAVE_OFFSET, (pcs) => [pcs[0], pcs[2]])
 }

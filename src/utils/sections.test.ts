@@ -4,6 +4,7 @@ import type { ChordTrackItem, MelodyNote, Project, Section } from '../types/proj
 import {
   flattenChords,
   flattenMelody,
+  flattenNotes,
   getActiveSection,
   getProjectTotalSteps,
   getSectionBarOffset,
@@ -21,7 +22,7 @@ function makeNote(overrides: Partial<MelodyNote> = {}): MelodyNote {
 }
 
 function makeSection(overrides: Partial<Section> = {}): Section {
-  return { id: 's1', name: 'Section', chords: [], melody: [], ...overrides }
+  return { id: 's1', name: 'Section', chords: [], melody: [], bassline: [], harmonyMelody: [], ...overrides }
 }
 
 describe('getSectionDisplaySteps', () => {
@@ -97,6 +98,22 @@ describe('flattenMelody', () => {
   })
 })
 
+describe('flattenNotes', () => {
+  it('applies the same offset math to the bassline and harmony layers', () => {
+    const sections = [
+      makeSection({ id: 's1', chords: [makeChord(), makeChord()], bassline: [makeNote({ id: 'b1', startStep: 0 })] }), // 2 bars
+      makeSection({ id: 's2', chords: [makeChord()], harmonyMelody: [makeNote({ id: 'h1', startStep: 4 })] }),
+    ]
+    expect(flattenNotes(sections, 'bassline').find((n) => n.id === 'b1')?.startStep).toBe(0)
+    expect(flattenNotes(sections, 'harmonyMelody').find((n) => n.id === 'h1')?.startStep).toBe(2 * STEPS_PER_BAR + 4)
+  })
+
+  it('flattenMelody is equivalent to flattenNotes(sections, "melody")', () => {
+    const sections = [makeSection({ chords: [makeChord()], melody: [makeNote({ id: 'n1' })] })]
+    expect(flattenMelody(sections)).toEqual(flattenNotes(sections, 'melody'))
+  })
+})
+
 describe('getSectionBarOffset', () => {
   it('returns 0 for the first section and the cumulative bar count for later ones', () => {
     const sections = [
@@ -120,6 +137,8 @@ describe('getActiveSection', () => {
       tempo: 100,
       chordInstrument: 'warm',
       melodyInstrument: 'pluck',
+      bassInstrument: 'warm',
+      harmonyInstrument: 'bright',
       createdAt: 0,
       updatedAt: 0,
     }
@@ -137,12 +156,19 @@ describe('getActiveSection', () => {
 })
 
 describe('getTotalChordCount / getTotalNoteCount', () => {
-  it('sums across all sections', () => {
+  it('sums chords across all sections', () => {
     const sections = [
       makeSection({ id: 's1', chords: [makeChord(), makeChord()], melody: [makeNote()] }),
       makeSection({ id: 's2', chords: [makeChord()], melody: [makeNote(), makeNote()] }),
     ]
     expect(getTotalChordCount(sections)).toBe(3)
-    expect(getTotalNoteCount(sections)).toBe(3)
+  })
+
+  it('sums notes across melody, bassline, and harmony layers in every section', () => {
+    const sections = [
+      makeSection({ id: 's1', melody: [makeNote()], bassline: [makeNote(), makeNote()] }),
+      makeSection({ id: 's2', melody: [makeNote(), makeNote()], harmonyMelody: [makeNote()] }),
+    ]
+    expect(getTotalNoteCount(sections)).toBe(6)
   })
 })

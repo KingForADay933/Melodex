@@ -42,13 +42,19 @@ export interface MelodyNote {
 
 /**
  * A chunk of the song (verse/chorus/bridge/etc.) with its own chord
- * progression and melody — a song is these chained together in order.
+ * progression and note layers — a song is these chained together in order.
+ * `bassline` and `harmonyMelody` are additional melodic layers alongside
+ * the lead `melody`: a bassline is auto-generated from the chords (see
+ * generateBassline), a harmony line is a second hand-drawn melody
+ * (countermelody) with no dedicated generator of its own.
  */
 export interface Section {
   id: string
   name: string
   chords: ChordTrackItem[]
   melody: MelodyNote[]
+  bassline: MelodyNote[]
+  harmonyMelody: MelodyNote[]
 }
 
 export interface Project {
@@ -61,6 +67,8 @@ export interface Project {
   tempo: number
   chordInstrument: InstrumentId
   melodyInstrument: InstrumentId
+  bassInstrument: InstrumentId
+  harmonyInstrument: InstrumentId
   createdAt: number
   updatedAt: number
 }

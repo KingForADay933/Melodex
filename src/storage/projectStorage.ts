@@ -4,15 +4,24 @@ import { createId } from '../utils/id'
 
 const DEFAULT_CHORD_INSTRUMENT = 'warm'
 const DEFAULT_MELODY_INSTRUMENT = 'pluck'
+/** Distinct from melody's own default ('pluck') so a fresh project's lead
+ * and harmony lines don't sound identical out of the box. */
+const DEFAULT_HARMONY_INSTRUMENT = 'bright'
+const DEFAULT_BASS_INSTRUMENT = 'warm'
 
 const STORAGE_KEY = 'melodex.projects.v1'
+
+/** A saved section may predate Phase 4 and lack the bassline/harmony
+ * layers entirely. */
+type StoredSection = Omit<Section, 'bassline' | 'harmonyMelody'> & Partial<Pick<Section, 'bassline' | 'harmonyMelody'>>
 
 /** Raw JSON from localStorage may be current-shape, or saved by an earlier
  * version of the app — pre-Phase-3 projects have `chords`/`melody` at the
  * top level instead of `sections`, and pre-Phase-2 saves lack tempo/
  * instrument fields entirely. */
-type StoredProject = Omit<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument'> &
-  Partial<Pick<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument'>> & {
+type StoredProject = Omit<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument' | 'bassInstrument' | 'harmonyInstrument'> &
+  Partial<Pick<Project, 'tempo' | 'chordInstrument' | 'melodyInstrument' | 'bassInstrument' | 'harmonyInstrument'>> & {
+    sections?: StoredSection[]
     chords?: ChordTrackItem[]
     melody?: MelodyNote[]
   }
@@ -27,25 +36,42 @@ function normalizeChord(chord: ChordTrackItem): ChordTrackItem {
   }
 }
 
-function normalizeSection(section: Section): Section {
-  return { ...section, chords: section.chords.map(normalizeChord) }
+function normalizeSection(section: StoredSection): Section {
+  return {
+    ...section,
+    chords: section.chords.map(normalizeChord),
+    bassline: section.bassline ?? [],
+    harmonyMelody: section.harmonyMelody ?? [],
+  }
 }
 
 /** Fills in fields added by later phases (tempo, chord extension/inversion,
- * sections) for projects saved by an earlier version of the app, so old
- * localStorage data keeps working instead of crashing on missing fields. A
- * pre-Phase-3 project (flat `chords`/`melody`, no `sections`) is wrapped
- * into a single implicit "Section 1" rather than migrated destructively. */
+ * sections, bassline/harmony layers) for projects saved by an earlier
+ * version of the app, so old localStorage data keeps working instead of
+ * crashing on missing fields. A pre-Phase-3 project (flat `chords`/
+ * `melody`, no `sections`) is wrapped into a single implicit "Section 1"
+ * rather than migrated destructively. */
 function normalizeProject(project: StoredProject): Project {
   const { chords: legacyChords, melody: legacyMelody, sections, ...rest } = project
   return {
     ...rest,
     sections: sections
       ? sections.map(normalizeSection)
-      : [{ id: createId('section'), name: 'Section 1', chords: (legacyChords ?? []).map(normalizeChord), melody: legacyMelody ?? [] }],
+      : [
+          {
+            id: createId('section'),
+            name: 'Section 1',
+            chords: (legacyChords ?? []).map(normalizeChord),
+            melody: legacyMelody ?? [],
+            bassline: [],
+            harmonyMelody: [],
+          },
+        ],
     tempo: rest.tempo ?? DEFAULT_BPM,
     chordInstrument: rest.chordInstrument ?? DEFAULT_CHORD_INSTRUMENT,
     melodyInstrument: rest.melodyInstrument ?? DEFAULT_MELODY_INSTRUMENT,
+    bassInstrument: rest.bassInstrument ?? DEFAULT_BASS_INSTRUMENT,
+    harmonyInstrument: rest.harmonyInstrument ?? DEFAULT_HARMONY_INSTRUMENT,
   }
 }
 
@@ -94,10 +120,12 @@ export function createProject(name = 'Untitled sketch'): Project {
     id: createId('project'),
     name,
     key: { tonic: 0, scale: 'major' },
-    sections: [{ id: createId('section'), name: 'Section 1', chords: [], melody: [] }],
+    sections: [{ id: createId('section'), name: 'Section 1', chords: [], melody: [], bassline: [], harmonyMelody: [] }],
     tempo: DEFAULT_BPM,
     chordInstrument: DEFAULT_CHORD_INSTRUMENT,
     melodyInstrument: DEFAULT_MELODY_INSTRUMENT,
+    bassInstrument: DEFAULT_BASS_INSTRUMENT,
+    harmonyInstrument: DEFAULT_HARMONY_INSTRUMENT,
     createdAt: now,
     updatedAt: now,
   }

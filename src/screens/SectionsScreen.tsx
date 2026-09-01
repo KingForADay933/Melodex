@@ -29,7 +29,14 @@ export function SectionsScreen({
   const { sections } = project
 
   function addSection() {
-    const fresh: Section = { id: createId('section'), name: `Section ${sections.length + 1}`, chords: [], melody: [] }
+    const fresh: Section = {
+      id: createId('section'),
+      name: `Section ${sections.length + 1}`,
+      chords: [],
+      melody: [],
+      bassline: [],
+      harmonyMelody: [],
+    }
     onSectionsChange([...sections, fresh])
     onSelectSection(fresh.id)
   }

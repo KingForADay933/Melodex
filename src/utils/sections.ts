@@ -39,16 +39,24 @@ export function flattenChords(sections: Section[]): FlatChordEvent[] {
   return events
 }
 
-/** Concatenates every section's melody notes in order, with each note's
- * startStep shifted to its absolute position in the whole song. */
-export function flattenMelody(sections: Section[]): MelodyNote[] {
+export type NoteLayerKey = 'melody' | 'bassline' | 'harmonyMelody'
+
+/** Concatenates every section's notes (for the given layer) in order, with
+ * each note's startStep shifted to its absolute position in the whole song. */
+export function flattenNotes(sections: Section[], layer: NoteLayerKey): MelodyNote[] {
   const notes: MelodyNote[] = []
   let stepOffset = 0
   for (const section of sections) {
-    for (const note of section.melody) notes.push({ ...note, startStep: note.startStep + stepOffset })
+    for (const note of section[layer]) notes.push({ ...note, startStep: note.startStep + stepOffset })
     stepOffset += getSectionTimelineSteps(section)
   }
   return notes
+}
+
+/** Concatenates every section's lead melody notes — a thin, more readable
+ * wrapper around flattenNotes for the layer most call sites care about. */
+export function flattenMelody(sections: Section[]): MelodyNote[] {
+  return flattenNotes(sections, 'melody')
 }
 
 /** Absolute bar offset where a section begins in the flattened song —
@@ -74,5 +82,5 @@ export function getTotalChordCount(sections: Section[]): number {
 }
 
 export function getTotalNoteCount(sections: Section[]): number {
-  return sections.reduce((sum, s) => sum + s.melody.length, 0)
+  return sections.reduce((sum, s) => sum + s.melody.length + s.bassline.length + s.harmonyMelody.length, 0)
 }
