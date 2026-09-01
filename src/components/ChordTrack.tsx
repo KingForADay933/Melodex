@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useGuidance } from '../guidance/GuidanceContext'
-import { getDiatonicChords, getToneCount, getVoicedChord, suggestNextDegrees } from '../music-theory'
+import { getDiatonicChords, getToneCount, suggestNextDegrees } from '../music-theory'
 import type { ChordExtension, MusicKey } from '../music-theory'
-import type { ChordTrackItem } from '../types/project'
+import type { ChordSource, ChordTrackItem } from '../types/project'
 import { createChordTrackItem } from '../utils/createChordTrackItem'
+import { resolveChord } from '../utils/resolveChord'
+import type { Substitution } from '../utils/substitutions'
+import { suggestSubstitutions } from '../utils/substitutions'
 import { BlueprintCard } from './ui/BlueprintCard'
 
 interface ChordTrackProps {
@@ -35,8 +38,8 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
   const lastDegree = chords.length > 0 ? chords[chords.length - 1].degree : null
   const suggestedDegrees = guidanceEnabled ? suggestNextDegrees(lastDegree) : []
 
-  const addChord = (degree: number) => {
-    onChange([...chords, createChordTrackItem(degree)])
+  const addChord = (degree: number, source?: ChordSource) => {
+    onChange([...chords, createChordTrackItem(degree, source)])
   }
 
   const removeChord = (id: string) => {
@@ -56,6 +59,12 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
     onChange(chords.map((c) => (c.id === id ? { ...c, ...patch } : c)))
   }
 
+  // Swaps degree/source only, preserving extension/inversion — a "ii7"
+  // substituted to "IV" should stay a 7th chord, not reset to a plain triad.
+  const applySubstitution = (id: string, sub: Substitution) => {
+    onChange(chords.map((c) => (c.id === id ? { ...c, degree: sub.degree, source: sub.source } : c)))
+  }
+
   return (
     <section className="space-y-3">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chord track</h2>
@@ -67,9 +76,10 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
       ) : (
         <div className="space-y-2">
           {chords.map((item, index) => {
-            const voiced = getVoicedChord(musicKey.tonic, musicKey.scale, item.degree, item.extension, item.inversion)
+            const voiced = resolveChord(musicKey, item)
             const isExpanded = expandedId === item.id
             const toneCount = getToneCount(item.extension)
+            const substitutions = suggestSubstitutions(musicKey, item)
 
             return (
               <BlueprintCard key={item.id} active={activeIndex === index} className="!py-3">
@@ -81,7 +91,7 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
                   >
                     <div className="truncate text-base font-semibold text-slate-800">{voiced.symbol}</div>
                     <div className="text-xs text-slate-400">
-                      {diatonicChords[item.degree - 1].roman}
+                      {voiced.roman}
                       {item.extension !== 'triad' && ` · ${EXTENSION_OPTIONS.find((o) => o.value === item.extension)?.label}`}
                       {item.inversion !== 0 && ` · ${inversionLabel(item.inversion)} inv.`}
                     </div>
@@ -151,6 +161,21 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
                         </button>
                       ))}
                     </div>
+                    {substitutions.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-slate-400">Try instead:</span>
+                        {substitutions.map((sub) => (
+                          <button
+                            key={`${sub.degree}-${sub.source?.kind ?? 'diatonic'}`}
+                            type="button"
+                            onClick={() => applySubstitution(item.id, sub)}
+                            className="rounded-md border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-accent hover:text-accent"
+                          >
+                            {sub.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </BlueprintCard>

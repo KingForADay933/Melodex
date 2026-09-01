@@ -1,4 +1,4 @@
-import { classifyTriad, intervalFromTonic } from './chords'
+import { classifyTriad, getDiatonicChord, intervalFromTonic } from './chords'
 import { noteName, pitchClassToMidi } from './notes'
 import { SCALES } from './scales'
 import type { ChordExtension, ChordQuality, ScaleType, VoicedChord } from './types'
@@ -89,6 +89,52 @@ export function getVoicedChord(
     root,
     rootName,
     symbol: buildSymbol(rootName, quality, extension, seventhSemitonesFromRoot, bassName),
+    pitchClasses,
+    noteNames: pitchClasses.map((pc) => noteName(pc, tonic, scale)),
+  }
+}
+
+// A dominant chord's tone structure is a fixed set of semitones above its
+// root, unlike EXTENSION_STEPS (scale-step offsets) — a dominant chord's
+// shape doesn't depend on the home scale. This is also exactly what a
+// diatonic V chord's tones work out to (major 3rd, perfect 5th, minor/
+// "dominant" 7th, major 9th), which is why V7 already sounds dominant today.
+const DOMINANT_EXTENSION_STEPS: Record<ChordExtension, number[]> = {
+  triad: [0, 4, 7],
+  seventh: [0, 4, 7, 10],
+  ninth: [0, 4, 7, 10, 14],
+  sus2: [0, 2, 7],
+  sus4: [0, 5, 7],
+}
+
+/** A dominant-function chord tonicizing `targetDegree` — root a perfect 5th
+ * above that degree's diatonic root. Unlike getVoicedChord, tones are fixed
+ * semitone offsets from the root rather than scale-steps, since a dominant
+ * chord's structure doesn't depend on the home scale. */
+export function getSecondaryDominantChord(
+  tonic: number,
+  scale: ScaleType,
+  targetDegree: number,
+  extension: ChordExtension,
+  inversion: number,
+): VoicedChord {
+  const target = getDiatonicChord(tonic, scale, targetDegree)
+  const root = (target.root + 7) % 12
+  const rootName = noteName(root, tonic, scale)
+  const steps = DOMINANT_EXTENSION_STEPS[extension]
+  const clampedInversion = ((inversion % steps.length) + steps.length) % steps.length
+  const pitchClasses = steps.map((step) => (root + step) % 12)
+  const bassName = noteName(pitchClasses[clampedInversion], tonic, scale)
+  const seventhSemitonesFromRoot = steps.includes(10) ? 10 : null
+
+  return {
+    degree: targetDegree,
+    extension,
+    inversion: clampedInversion,
+    quality: 'major',
+    root,
+    rootName,
+    symbol: buildSymbol(rootName, 'major', extension, seventhSemitonesFromRoot, bassName),
     pitchClasses,
     noteNames: pitchClasses.map((pc) => noteName(pc, tonic, scale)),
   }

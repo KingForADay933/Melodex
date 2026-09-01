@@ -2,6 +2,17 @@ import type { InstrumentId } from '../audio/instruments'
 import type { ChordExtension, MusicKey } from '../music-theory'
 
 /**
+ * Where a chord's degree resolves against. Absent means plain diatonic (the
+ * degree resolves against the project's own key/scale, as every chord did
+ * before this existed — old saved projects have no `source` and keep behaving
+ * exactly as before). 'borrowed' resolves the same degree against the
+ * parallel scale (modal interchange, e.g. iv in a major key). For
+ * 'secondaryDominant', `degree` is repurposed as the *target* degree being
+ * tonicized (degree=2 + secondaryDominant means "V/ii").
+ */
+export type ChordSource = { kind: 'borrowed' } | { kind: 'secondaryDominant' }
+
+/**
  * A chord slot on the chord track. We store the scale degree rather than a
  * fully-resolved chord so that changing the project's key re-voices every
  * chord automatically — there's a single source of truth (music-theory)
@@ -17,6 +28,7 @@ export interface ChordTrackItem {
   extension: ChordExtension
   /** 0 = root position, 1 = first inversion, etc. Clamped to the chord's tone count elsewhere. */
   inversion: number
+  source?: ChordSource
 }
 
 /** One note placed on the piano roll. Position/length are in 16th-note steps. */
