@@ -20,3 +20,7 @@ export const MELODY_MAX_MIDI = 84
 
 /** Octave the chord track plays back in. */
 export const CHORD_OCTAVE = 4
+
+/** Cap on bars produced by MIDI import — PianoRoll renders every step/pitch
+ * cell unvirtualized, so this keeps an imported song's grid renderable. */
+export const MAX_IMPORT_BARS = 128

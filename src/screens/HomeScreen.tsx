@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import type { KeyboardEvent, MouseEvent } from 'react'
+import { useRef, useState } from 'react'
+import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
 import { DuplicateIcon, PencilIcon, PlusIcon } from '../components/ui/icons'
+import { importMidiFile } from '../import/midiImport'
 import type { Project } from '../types/project'
 import { formatKeyLabel } from '../utils/formatProject'
 import { getTotalChordCount } from '../utils/sections'
@@ -14,6 +15,7 @@ interface HomeScreenProps {
   projects: Project[]
   onOpen: (id: string) => void
   onNew: () => void
+  onImportMidi: (project: Project) => void
   onDelete: (id: string) => void
   onRename: (id: string, name: string) => void
   onDuplicate: (id: string) => void
@@ -29,9 +31,20 @@ function formatRelativeTime(timestamp: number): string {
   return `${Math.round(diffHours / 24)}d ago`
 }
 
-export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename, onDuplicate, onReplayOnboarding }: HomeScreenProps) {
+export function HomeScreen({
+  projects,
+  onOpen,
+  onNew,
+  onImportMidi,
+  onDelete,
+  onRename,
+  onDuplicate,
+  onReplayOnboarding,
+}: HomeScreenProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleDelete(project: Project, event: MouseEvent) {
     event.stopPropagation()
@@ -65,6 +78,23 @@ export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename, onDupl
     if (event.key === 'Escape') setRenamingId(null)
   }
 
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // allow re-selecting the same filename after a failed import
+    if (!file) return
+
+    setIsImporting(true)
+    try {
+      const { project, warnings } = await importMidiFile(file)
+      if (warnings.length > 0) window.alert(warnings.join('\n'))
+      onImportMidi(project)
+    } catch {
+      window.alert('Could not read this file as a MIDI file.')
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
       <ScreenHeader title="Melodex" />
@@ -80,6 +110,22 @@ export function HomeScreen({ projects, onOpen, onNew, onDelete, onRename, onDupl
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover"
       >
         <PlusIcon className="h-4 w-4" /> New sketch
+      </button>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".mid,.midi"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isImporting}
+        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
+      >
+        {isImporting ? 'Importing…' : 'Import MIDI'}
       </button>
 
       {projects.length > 0 && (
