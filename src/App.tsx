@@ -12,6 +12,7 @@ import { KeyScreen } from './screens/KeyScreen'
 import { MelodyScreen } from './screens/MelodyScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { useProjectManager } from './storage/useProjectManager'
+import { transposeProject } from './utils/transpose'
 
 function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('home')
@@ -98,8 +99,9 @@ function App() {
         {activeScreen === 'key' && (
           <KeyScreen
             key={project.id}
-            musicKey={project.key}
+            project={project}
             onChange={(key) => updateActiveProject((p) => ({ ...p, key }))}
+            onTranspose={(newKey) => updateActiveProject((p) => transposeProject(p, newKey))}
             onContinue={() => setActiveScreen('chords')}
             {...history}
           />

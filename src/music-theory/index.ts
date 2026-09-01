@@ -3,6 +3,7 @@ export { getToneCount, getVoicedChord, voiceChordTones } from './extendedChords'
 export { FLAT_NAMES, noteName, pitchClassToMidi, SHARP_NAMES, usesFlats } from './notes'
 export { COMMON_PROGRESSIONS, getProgressionChords } from './progressions'
 export { getScaleNotes, isInScale, SCALES } from './scales'
+export { suggestNextDegrees } from './suggestions'
 export type {
   ChordExtension,
   ChordQuality,
