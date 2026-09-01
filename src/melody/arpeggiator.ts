@@ -1,6 +1,7 @@
 import { STEPS_PER_BAR } from '../constants'
 import { pitchClassToMidi } from '../music-theory'
-import type { MelodyNote, Project } from '../types/project'
+import type { MusicKey } from '../music-theory'
+import type { ChordTrackItem, MelodyNote } from '../types/project'
 import { createId } from '../utils/id'
 import { resolveChord } from '../utils/resolveChord'
 
@@ -89,18 +90,20 @@ function buildPatternIndices(toneCount: number, pattern: ArpeggioPattern): numbe
  * contour pattern (which chord tone plays) and rhythm template (when notes
  * fall and how long they last), replacing whatever melody notes were there
  * before. Used by the "auto-fill melody" controls on the Melody screen — a
- * starting point the user can then hand-edit.
+ * starting point the user can then hand-edit. Scoped to one section's
+ * chords at a time (each section has its own melody).
  */
 export function generateArpeggio(
-  project: Project,
+  chords: ChordTrackItem[],
+  key: MusicKey,
   pattern: ArpeggioPattern,
   rhythm: RhythmTemplate = RHYTHM_TEMPLATES[0],
 ): MelodyNote[] {
   const octave = CHORD_TRACK_BASE_OCTAVE + ARPEGGIO_OCTAVE_OFFSET
   const notes: MelodyNote[] = []
 
-  project.chords.forEach((chordItem, barIndex) => {
-    const voiced = resolveChord(project.key, chordItem)
+  chords.forEach((chordItem, barIndex) => {
+    const voiced = resolveChord(key, chordItem)
     const toneCount = voiced.pitchClasses.length
     const patternIndices = buildPatternIndices(toneCount, pattern)
 

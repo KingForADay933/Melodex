@@ -1,5 +1,6 @@
 import { noteName } from '../music-theory'
-import type { Project } from '../types/project'
+import type { MusicKey } from '../music-theory'
+import type { ChordTrackItem, Project, Section } from '../types/project'
 import { resolveChord } from './resolveChord'
 
 export function formatKeyLabel(project: Project): string {
@@ -8,12 +9,13 @@ export function formatKeyLabel(project: Project): string {
   return `${tonicName} ${scaleLabel}`
 }
 
-export function formatProgressionLabel(project: Project): string {
-  if (project.chords.length === 0) return 'No chords yet'
-  return project.chords.map((c) => resolveChord(project.key, c).roman).join(' – ')
+export function formatProgressionLabel(musicKey: MusicKey, chords: ChordTrackItem[]): string {
+  if (chords.length === 0) return 'No chords yet'
+  return chords.map((c) => resolveChord(musicKey, c).roman).join(' – ')
 }
 
-/** e.g. "F# Minor · i – VI – III – VII", used as the subtitle under each screen's title. */
-export function formatScreenSubtitle(project: Project): string {
-  return `${formatKeyLabel(project)} · ${formatProgressionLabel(project)}`
+/** e.g. "F# Minor · Verse · i – VI – III – VII", used as the subtitle
+ * under each screen's title. */
+export function formatScreenSubtitle(project: Project, section: Section): string {
+  return `${formatKeyLabel(project)} · ${section.name} · ${formatProgressionLabel(project.key, section.chords)}`
 }

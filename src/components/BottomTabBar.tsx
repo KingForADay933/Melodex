@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import type { Screen } from '../navigation/types'
-import { ChordsIcon, ExportIcon, HomeIcon, KeyIcon, MelodyIcon } from './ui/icons'
+import { ChordsIcon, ExportIcon, HomeIcon, KeyIcon, MelodyIcon, SectionsIcon } from './ui/icons'
 
 interface Tab {
   id: Screen
@@ -11,6 +11,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'home', label: 'Home', Icon: HomeIcon },
   { id: 'key', label: 'Key', Icon: KeyIcon },
+  { id: 'sections', label: 'Sections', Icon: SectionsIcon },
   { id: 'chords', label: 'Chords', Icon: ChordsIcon },
   { id: 'melody', label: 'Melody', Icon: MelodyIcon },
   { id: 'export', label: 'Export', Icon: ExportIcon },

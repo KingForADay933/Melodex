@@ -6,6 +6,7 @@ import { downloadProjectMidi } from '../export/midiExport'
 import { downloadProjectZip } from '../export/multiTrackExport'
 import type { Project } from '../types/project'
 import { formatKeyLabel } from '../utils/formatProject'
+import { getTotalChordCount, getTotalNoteCount } from '../utils/sections'
 
 interface ExportScreenProps {
   project: Project
@@ -14,7 +15,7 @@ interface ExportScreenProps {
 export function ExportScreen({ project }: ExportScreenProps) {
   const [isZipping, setIsZipping] = useState(false)
   const [humanize, setHumanize] = useState(false)
-  const hasContent = project.chords.length > 0 || project.melody.length > 0
+  const hasContent = getTotalChordCount(project.sections) > 0 || getTotalNoteCount(project.sections) > 0
 
   async function handleZipExport() {
     setIsZipping(true)
@@ -37,8 +38,9 @@ export function ExportScreen({ project }: ExportScreenProps) {
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Project</div>
         <div className="mt-1 text-lg font-semibold text-slate-800">{project.name}</div>
         <div className="text-sm text-slate-500">
-          {formatKeyLabel(project)} · {project.tempo} BPM · {project.chords.length} chords ·{' '}
-          {project.melody.length} notes
+          {formatKeyLabel(project)} · {project.tempo} BPM · {project.sections.length}{' '}
+          {project.sections.length === 1 ? 'section' : 'sections'} · {getTotalChordCount(project.sections)} chords ·{' '}
+          {getTotalNoteCount(project.sections)} notes
         </div>
       </BlueprintCard>
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Project } from '../types/project'
+import { cloneProject } from '../utils/cloneProject'
 import {
   createProject,
   deleteProject as deleteStoredProject,
@@ -98,6 +99,16 @@ export function useProjectManager() {
     setProjects(listProjects())
   }
 
+  /** Duplicates any saved project by id, not just the active one — mirrors
+   * renameProject. Doesn't switch to/open the copy, matching how rename and
+   * delete act on any card without requiring it to be active first. */
+  function duplicateProject(id: string): void {
+    const target = id === activeProject.id ? activeProject : loadProject(id)
+    if (!target) return
+    saveProject(cloneProject(target))
+    setProjects(listProjects())
+  }
+
   function removeProject(id: string): void {
     deleteStoredProject(id)
     const remaining = listProjects()
@@ -126,6 +137,7 @@ export function useProjectManager() {
     createNewProject,
     switchToProject,
     renameProject,
+    duplicateProject,
     removeProject,
   }
 }

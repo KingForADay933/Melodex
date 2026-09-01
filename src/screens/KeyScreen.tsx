@@ -17,7 +17,7 @@ interface KeyScreenProps extends HistoryControls {
 export function KeyScreen({ project, onChange, onTranspose, onContinue, ...history }: KeyScreenProps) {
   const musicKey = project.key
   const [targetKey, setTargetKey] = useState<MusicKey>(musicKey)
-  const hasContent = project.chords.length > 0 || project.melody.length > 0
+  const hasContent = project.sections.some((s) => s.chords.length > 0 || s.melody.length > 0)
   const isSameKey = targetKey.tonic === musicKey.tonic && targetKey.scale === musicKey.scale
 
   return (

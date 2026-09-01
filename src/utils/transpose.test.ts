@@ -1,15 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { MELODY_MAX_MIDI, MELODY_MIN_MIDI } from '../constants'
-import type { Project } from '../types/project'
+import type { Project, Section } from '../types/project'
 import { transposeProject, wrapIntoRange } from './transpose'
+
+function makeSection(overrides: Partial<Section> = {}): Section {
+  return {
+    id: 's1',
+    name: 'Section 1',
+    chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }],
+    melody: [{ id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 }], // C4
+    ...overrides,
+  }
+}
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
     id: 'test',
     name: 'Test',
     key: { tonic: 0, scale: 'major' }, // C major
-    chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }],
-    melody: [{ id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 }], // C4
+    sections: [makeSection()],
     tempo: 100,
     chordInstrument: 'warm',
     melodyInstrument: 'pluck',
@@ -48,9 +57,9 @@ describe('transposeProject', () => {
       [0, 6, -6],
     ]
     for (const [from, to, expectedDelta] of cases) {
-      const project = makeProject({ key: { tonic: from, scale: 'major' }, melody: [{ id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 }] })
+      const project = makeProject({ key: { tonic: from, scale: 'major' } })
       const result = transposeProject(project, { tonic: to, scale: 'major' })
-      expect(result.melody[0].pitch - 60).toBe(expectedDelta)
+      expect(result.sections[0].melody[0].pitch - 60).toBe(expectedDelta)
     }
   })
 
@@ -63,29 +72,42 @@ describe('transposeProject', () => {
   it('leaves chords untouched (degree-based, re-voices automatically)', () => {
     const project = makeProject()
     const result = transposeProject(project, { tonic: 7, scale: 'major' })
-    expect(result.chords).toEqual(project.chords)
+    expect(result.sections[0].chords).toEqual(project.sections[0].chords)
   })
 
   it('wraps melody notes by octave instead of clamping when they would fall out of range', () => {
     const project = makeProject({
       key: { tonic: 0, scale: 'major' },
-      melody: [{ id: 'n1', pitch: MELODY_MAX_MIDI - 1, startStep: 0, lengthSteps: 2 }],
+      sections: [makeSection({ melody: [{ id: 'n1', pitch: MELODY_MAX_MIDI - 1, startStep: 0, lengthSteps: 2 }] })],
     })
     const result = transposeProject(project, { tonic: 5, scale: 'major' }) // +5 semitones
-    expect(result.melody[0].pitch).toBeLessThanOrEqual(MELODY_MAX_MIDI)
-    expect(result.melody[0].pitch).toBeGreaterThanOrEqual(MELODY_MIN_MIDI)
-    expect(result.melody[0].pitch % 12).toBe((MELODY_MAX_MIDI - 1 + 5) % 12)
+    const pitch = result.sections[0].melody[0].pitch
+    expect(pitch).toBeLessThanOrEqual(MELODY_MAX_MIDI)
+    expect(pitch).toBeGreaterThanOrEqual(MELODY_MIN_MIDI)
+    expect(pitch % 12).toBe((MELODY_MAX_MIDI - 1 + 5) % 12)
   })
 
   it('does not throw on an empty melody', () => {
-    const project = makeProject({ melody: [] })
+    const project = makeProject({ sections: [makeSection({ melody: [] })] })
     expect(() => transposeProject(project, { tonic: 3, scale: 'minor' })).not.toThrow()
-    expect(transposeProject(project, { tonic: 3, scale: 'minor' }).melody).toEqual([])
+    expect(transposeProject(project, { tonic: 3, scale: 'minor' }).sections[0].melody).toEqual([])
   })
 
   it('is a no-op shift when the new tonic equals the old one', () => {
     const project = makeProject()
     const result = transposeProject(project, { tonic: 0, scale: 'minor' })
-    expect(result.melody[0].pitch).toBe(project.melody[0].pitch)
+    expect(result.sections[0].melody[0].pitch).toBe(project.sections[0].melody[0].pitch)
+  })
+
+  it('shifts melody in every section, not just the first', () => {
+    const project = makeProject({
+      sections: [
+        makeSection({ id: 's1', melody: [{ id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 }] }),
+        makeSection({ id: 's2', melody: [{ id: 'n2', pitch: 64, startStep: 0, lengthSteps: 2 }] }),
+      ],
+    })
+    const result = transposeProject(project, { tonic: 5, scale: 'major' }) // +5 semitones
+    expect(result.sections[0].melody[0].pitch).toBe(65)
+    expect(result.sections[1].melody[0].pitch).toBe(69)
   })
 })

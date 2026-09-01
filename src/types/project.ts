@@ -40,12 +40,23 @@ export interface MelodyNote {
   lengthSteps: number
 }
 
+/**
+ * A chunk of the song (verse/chorus/bridge/etc.) with its own chord
+ * progression and melody — a song is these chained together in order.
+ */
+export interface Section {
+  id: string
+  name: string
+  chords: ChordTrackItem[]
+  melody: MelodyNote[]
+}
+
 export interface Project {
   id: string
   name: string
   key: MusicKey
-  chords: ChordTrackItem[]
-  melody: MelodyNote[]
+  /** Always at least one section — a project is never "sectionless". */
+  sections: Section[]
   /** Beats per minute. */
   tempo: number
   chordInstrument: InstrumentId

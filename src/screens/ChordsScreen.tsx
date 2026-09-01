@@ -7,13 +7,18 @@ import { InstrumentPicker } from '../components/InstrumentPicker'
 import { ProgressionPicker } from '../components/ProgressionPicker'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { SecondaryDominantPicker } from '../components/SecondaryDominantPicker'
+import { SectionSwitcher } from '../components/SectionSwitcher'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
 import type { HistoryControls } from '../navigation/types'
-import type { ChordTrackItem, Project } from '../types/project'
+import type { ChordTrackItem, Project, Section } from '../types/project'
 import { formatScreenSubtitle } from '../utils/formatProject'
 
 interface ChordsScreenProps extends HistoryControls {
   project: Project
+  section: Section
+  sections: Section[]
+  activeSectionId: string
+  onSelectSection: (id: string) => void
   onChordsChange: (chords: ChordTrackItem[]) => void
   onInstrumentChange: (instrument: InstrumentId) => void
   activeIndex: number | null
@@ -21,29 +26,35 @@ interface ChordsScreenProps extends HistoryControls {
 
 export function ChordsScreen({
   project,
+  section,
+  sections,
+  activeSectionId,
+  onSelectSection,
   onChordsChange,
   onInstrumentChange,
   activeIndex,
   ...history
 }: ChordsScreenProps) {
-  const [showPicker, setShowPicker] = useState(project.chords.length === 0)
+  const [showPicker, setShowPicker] = useState(section.chords.length === 0)
   const [showBorrowed, setShowBorrowed] = useState(false)
   const [showSecondaryDominants, setShowSecondaryDominants] = useState(false)
   const { enabled: advancedMode, toggle: toggleAdvancedMode } = useAdvancedMode()
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Chord Track" subtitle={formatScreenSubtitle(project)} {...history} />
+      <ScreenHeader title="Chord Track" subtitle={formatScreenSubtitle(project, section)} {...history} />
       <GuidanceTip>
         This is your song&rsquo;s chord sequence. Use the arrows to reorder, or tap a roman
         numeral below to add another chord from your key.
       </GuidanceTip>
 
+      <SectionSwitcher sections={sections} activeSectionId={activeSectionId} onSelect={onSelectSection} />
+
       <InstrumentPicker label="Sound" value={project.chordInstrument} onChange={onInstrumentChange} />
 
       <ChordTrack
         musicKey={project.key}
-        chords={project.chords}
+        chords={section.chords}
         onChange={onChordsChange}
         activeIndex={activeIndex}
       />
@@ -88,7 +99,7 @@ export function ChordsScreen({
       {showBorrowed && (
         <BorrowedChordPicker
           musicKey={project.key}
-          onApply={(chord) => onChordsChange([...project.chords, chord])}
+          onApply={(chord) => onChordsChange([...section.chords, chord])}
         />
       )}
 
@@ -104,7 +115,7 @@ export function ChordsScreen({
           {showSecondaryDominants && (
             <SecondaryDominantPicker
               musicKey={project.key}
-              onApply={(chord) => onChordsChange([...project.chords, chord])}
+              onApply={(chord) => onChordsChange([...section.chords, chord])}
             />
           )}
         </>

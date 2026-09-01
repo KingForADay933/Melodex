@@ -3,15 +3,20 @@ import type { InstrumentId } from '../audio/instruments'
 import { InstrumentPicker } from '../components/InstrumentPicker'
 import { PianoRoll } from '../components/PianoRoll'
 import { ScreenHeader } from '../components/ScreenHeader'
+import { SectionSwitcher } from '../components/SectionSwitcher'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
 import { ARPEGGIO_PATTERNS, generateArpeggio, RHYTHM_TEMPLATES } from '../melody/arpeggiator'
 import type { ArpeggioPattern, RhythmTemplate } from '../melody/arpeggiator'
 import type { HistoryControls } from '../navigation/types'
-import type { MelodyNote, Project } from '../types/project'
+import type { MelodyNote, Project, Section } from '../types/project'
 import { formatScreenSubtitle } from '../utils/formatProject'
 
 interface MelodyScreenProps extends HistoryControls {
   project: Project
+  section: Section
+  sections: Section[]
+  activeSectionId: string
+  onSelectSection: (id: string) => void
   totalSteps: number
   onMelodyChange: (notes: MelodyNote[]) => void
   onInstrumentChange: (instrument: InstrumentId) => void
@@ -21,6 +26,10 @@ interface MelodyScreenProps extends HistoryControls {
 
 export function MelodyScreen({
   project,
+  section,
+  sections,
+  activeSectionId,
+  onSelectSection,
   totalSteps,
   onMelodyChange,
   onInstrumentChange,
@@ -32,20 +41,22 @@ export function MelodyScreen({
   const [rhythm, setRhythm] = useState<RhythmTemplate>(RHYTHM_TEMPLATES[0])
 
   function applyArpeggio(pattern: ArpeggioPattern) {
-    if (project.chords.length === 0) return
-    if (project.melody.length > 0 && !window.confirm('Replace the current melody with a generated arpeggio?')) {
+    if (section.chords.length === 0) return
+    if (section.melody.length > 0 && !window.confirm('Replace the current melody with a generated arpeggio?')) {
       return
     }
-    onMelodyChange(generateArpeggio(project, pattern, rhythm))
+    onMelodyChange(generateArpeggio(section.chords, project.key, pattern, rhythm))
   }
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Melody" subtitle={formatScreenSubtitle(project)} {...history} />
+      <ScreenHeader title="Melody" subtitle={formatScreenSubtitle(project, section)} {...history} />
       <GuidanceTip>
         Filled squares are in your key — they&rsquo;ll always sound &ldquo;right.&rdquo; Grey
         diamonds are outside it — use them sparingly for tension.
       </GuidanceTip>
+
+      <SectionSwitcher sections={sections} activeSectionId={activeSectionId} onSelect={onSelectSection} />
 
       <InstrumentPicker label="Sound" value={project.melodyInstrument} onChange={onInstrumentChange} />
 
@@ -56,7 +67,7 @@ export function MelodyScreen({
             key={pattern.id}
             type="button"
             onClick={() => applyArpeggio(pattern.id)}
-            disabled={project.chords.length === 0}
+            disabled={section.chords.length === 0}
             className="rounded-md border border-dashed border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-accent hover:text-accent disabled:opacity-40"
           >
             {pattern.label}
@@ -85,8 +96,8 @@ export function MelodyScreen({
 
       <PianoRoll
         musicKey={project.key}
-        chords={project.chords}
-        notes={project.melody}
+        chords={section.chords}
+        notes={section.melody}
         totalSteps={totalSteps}
         onChange={onMelodyChange}
         onPreviewNote={onPreviewNote}

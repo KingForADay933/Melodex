@@ -11,7 +11,9 @@ import { HomeScreen } from './screens/HomeScreen'
 import { KeyScreen } from './screens/KeyScreen'
 import { MelodyScreen } from './screens/MelodyScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
+import { SectionsScreen } from './screens/SectionsScreen'
 import { useProjectManager } from './storage/useProjectManager'
+import { getActiveSection, getProjectTotalSteps, getSectionBarOffset, getSectionDisplaySteps } from './utils/sections'
 import { transposeProject } from './utils/transpose'
 
 function App() {
@@ -28,14 +30,52 @@ function App() {
     createNewProject,
     switchToProject,
     renameProject,
+    duplicateProject,
     removeProject,
   } = useProjectManager()
   const { play, stop, previewNote, isPlaying, currentStep } = useAudioEngine()
 
-  const totalSteps = Math.max(project.chords.length, 1) * STEPS_PER_BAR
-  const activeChordIndex = currentStep !== null ? Math.floor(currentStep / STEPS_PER_BAR) : null
-  const progress = currentStep !== null ? Math.min(1, currentStep / totalSteps) : 0
-  const hasContent = project.chords.length > 0 || project.melody.length > 0
+  // Which section Chords/Melody are currently editing — view state, not
+  // routed through updateActiveProject, so (like activeScreen) it stays
+  // outside undo history. Resets to the first section whenever the active
+  // project itself changes (adjusted during render, React's recommended
+  // way to reset state on a prop change, rather than an effect — an effect
+  // here would need `project.sections` in its deps to satisfy
+  // exhaustive-deps, which would reset the selection on every edit, not
+  // just on switching projects).
+  const [activeSectionId, setActiveSectionId] = useState(project.sections[0].id)
+  const [lastSeenProjectId, setLastSeenProjectId] = useState(project.id)
+  if (project.id !== lastSeenProjectId) {
+    setLastSeenProjectId(project.id)
+    setActiveSectionId(project.sections[0].id)
+  }
+
+  const activeSection = getActiveSection(project, activeSectionId)
+  const sectionDisplaySteps = getSectionDisplaySteps(activeSection)
+  const songTotalSteps = getProjectTotalSteps(project.sections)
+  const sectionBarOffset = getSectionBarOffset(project.sections, activeSection.id)
+  const sectionStepOffset = sectionBarOffset * STEPS_PER_BAR
+
+  // currentStep from useAudioEngine is song-wide (playback flattens every
+  // section into one continuous timeline). Translate it back to "relative
+  // to the section currently on screen" for the two live-position UI bits
+  // that are section-scoped — null (no highlight) when playback's position
+  // is in a different section than the one being viewed, rather than a
+  // wrong/out-of-range highlight.
+  const songActiveBarIndex = currentStep !== null ? Math.floor(currentStep / STEPS_PER_BAR) : null
+  const activeChordIndex = (() => {
+    if (songActiveBarIndex === null) return null
+    const relative = songActiveBarIndex - sectionBarOffset
+    return relative >= 0 && relative < activeSection.chords.length ? relative : null
+  })()
+  const sectionRelativeCurrentStep = (() => {
+    if (currentStep === null) return null
+    const relative = currentStep - sectionStepOffset
+    return relative >= 0 && relative < sectionDisplaySteps ? relative : null
+  })()
+
+  const progress = currentStep !== null ? Math.min(1, currentStep / Math.max(songTotalSteps, 1)) : 0
+  const hasContent = project.sections.some((s) => s.chords.length > 0 || s.melody.length > 0)
   const showMiniTransport = activeScreen === 'chords' || activeScreen === 'melody'
   const history = { canUndo, canRedo, onUndo: undo, onRedo: redo }
 
@@ -92,6 +132,7 @@ function App() {
             onNew={startNewProject}
             onDelete={removeProject}
             onRename={renameProject}
+            onDuplicate={duplicateProject}
             onReplayOnboarding={() => setShowOnboarding(true)}
           />
         )}
@@ -107,11 +148,31 @@ function App() {
           />
         )}
 
+        {activeScreen === 'sections' && (
+          <SectionsScreen
+            key={project.id}
+            project={project}
+            activeSectionId={activeSectionId}
+            onSelectSection={setActiveSectionId}
+            onSectionsChange={(sections) => updateActiveProject((p) => ({ ...p, sections }))}
+            {...history}
+          />
+        )}
+
         {activeScreen === 'chords' && (
           <ChordsScreen
             key={project.id}
             project={project}
-            onChordsChange={(chords) => updateActiveProject((p) => ({ ...p, chords }))}
+            section={activeSection}
+            sections={project.sections}
+            activeSectionId={activeSectionId}
+            onSelectSection={setActiveSectionId}
+            onChordsChange={(chords) =>
+              updateActiveProject((p) => ({
+                ...p,
+                sections: p.sections.map((s) => (s.id === activeSectionId ? { ...s, chords } : s)),
+              }))
+            }
             onInstrumentChange={(chordInstrument) => updateActiveProject((p) => ({ ...p, chordInstrument }))}
             activeIndex={isPlaying ? activeChordIndex : null}
             {...history}
@@ -122,11 +183,20 @@ function App() {
           <MelodyScreen
             key={project.id}
             project={project}
-            totalSteps={totalSteps}
-            onMelodyChange={(melody) => updateActiveProject((p) => ({ ...p, melody }))}
+            section={activeSection}
+            sections={project.sections}
+            activeSectionId={activeSectionId}
+            onSelectSection={setActiveSectionId}
+            totalSteps={sectionDisplaySteps}
+            onMelodyChange={(melody) =>
+              updateActiveProject((p) => ({
+                ...p,
+                sections: p.sections.map((s) => (s.id === activeSectionId ? { ...s, melody } : s)),
+              }))
+            }
             onInstrumentChange={(melodyInstrument) => updateActiveProject((p) => ({ ...p, melodyInstrument }))}
             onPreviewNote={(pitch) => previewNote(pitch, project.melodyInstrument)}
-            currentStep={isPlaying ? currentStep : null}
+            currentStep={isPlaying ? sectionRelativeCurrentStep : null}
             {...history}
           />
         )}

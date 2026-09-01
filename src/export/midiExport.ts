@@ -4,6 +4,7 @@ import { BEATS_PER_BAR, CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
 import { voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
 import { resolveChord } from '../utils/resolveChord'
+import { flattenChords, flattenMelody } from '../utils/sections'
 import { sanitizeFilename, triggerDownload } from './downloadHelpers'
 
 type MidiTrack = ReturnType<Midi['addTrack']>
@@ -43,10 +44,10 @@ function addChordNotes(track: MidiTrack, project: Project, options: ExportOption
   const stepSize = secondsPerStep(project.tempo)
   const duration = STEPS_PER_BAR * stepSize
 
-  project.chords.forEach((item, index) => {
+  flattenChords(project.sections).forEach(({ item, barIndex }) => {
     const voiced = resolveChord(project.key, item)
     const midiNotes = voiceChordTones(voiced.pitchClasses, CHORD_OCTAVE, item.inversion)
-    const startTime = index * STEPS_PER_BAR * stepSize
+    const startTime = barIndex * STEPS_PER_BAR * stepSize
     for (const midi of midiNotes) {
       const { time, velocity } = options.humanize ? applyHumanize(startTime, 0.8, stepSize) : { time: startTime, velocity: 0.8 }
       track.addNote({ midi, time, duration, velocity })
@@ -56,7 +57,7 @@ function addChordNotes(track: MidiTrack, project: Project, options: ExportOption
 
 function addMelodyNotes(track: MidiTrack, project: Project, options: ExportOptions): void {
   const stepSize = secondsPerStep(project.tempo)
-  for (const note of project.melody) {
+  for (const note of flattenMelody(project.sections)) {
     const startTime = note.startStep * stepSize
     const { time, velocity } = options.humanize ? applyHumanize(startTime, 0.9, stepSize) : { time: startTime, velocity: 0.9 }
     track.addNote({ midi: note.pitch, time, duration: note.lengthSteps * stepSize, velocity })
