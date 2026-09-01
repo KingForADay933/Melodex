@@ -81,6 +81,15 @@ export function useProjectManager() {
     setProjects(listProjects())
   }
 
+  /** Registers an already-built project (e.g. from MIDI import) as the new
+   * active project — same persist steps as createNewProject, just skipping
+   * the createProject() call since the caller already has a Project. */
+  function importProject(project: Project): void {
+    saveProject(project)
+    setActiveProject(project)
+    setProjects(listProjects())
+  }
+
   function switchToProject(id: string): void {
     const target = loadProject(id)
     if (target) setActiveProject(target)
@@ -135,6 +144,7 @@ export function useProjectManager() {
     undo,
     redo,
     createNewProject,
+    importProject,
     switchToProject,
     renameProject,
     duplicateProject,

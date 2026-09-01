@@ -2,12 +2,12 @@ import { DEFAULT_BPM } from '../constants'
 import type { ChordTrackItem, MelodyNote, Project, Section } from '../types/project'
 import { createId } from '../utils/id'
 
-const DEFAULT_CHORD_INSTRUMENT = 'warm'
-const DEFAULT_MELODY_INSTRUMENT = 'pluck'
+export const DEFAULT_CHORD_INSTRUMENT = 'warm'
+export const DEFAULT_MELODY_INSTRUMENT = 'pluck'
 /** Distinct from melody's own default ('pluck') so a fresh project's lead
  * and harmony lines don't sound identical out of the box. */
-const DEFAULT_HARMONY_INSTRUMENT = 'bright'
-const DEFAULT_BASS_INSTRUMENT = 'warm'
+export const DEFAULT_HARMONY_INSTRUMENT = 'bright'
+export const DEFAULT_BASS_INSTRUMENT = 'warm'
 
 const STORAGE_KEY = 'melodex.projects.v1'
 

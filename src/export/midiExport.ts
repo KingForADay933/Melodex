@@ -17,7 +17,7 @@ export interface ExportOptions {
   humanize?: boolean
 }
 
-function secondsPerStep(tempo: number): number {
+export function secondsPerStep(tempo: number): number {
   return (60 / tempo) * (BEATS_PER_BAR / STEPS_PER_BAR)
 }
 

@@ -13,6 +13,7 @@ import { MelodyScreen } from './screens/MelodyScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { SectionsScreen } from './screens/SectionsScreen'
 import { useProjectManager } from './storage/useProjectManager'
+import type { Project } from './types/project'
 import { getActiveSection, getProjectTotalSteps, getSectionBarOffset, getSectionDisplaySteps } from './utils/sections'
 import { transposeProject } from './utils/transpose'
 
@@ -28,6 +29,7 @@ function App() {
     undo,
     redo,
     createNewProject,
+    importProject,
     switchToProject,
     renameProject,
     duplicateProject,
@@ -91,6 +93,11 @@ function App() {
     setActiveScreen('key')
   }
 
+  function handleImportMidi(imported: Project) {
+    importProject(imported)
+    setActiveScreen('key')
+  }
+
   function finishOnboarding() {
     markOnboardingSeen()
     setShowOnboarding(false)
@@ -132,6 +139,7 @@ function App() {
             projects={projects}
             onOpen={openProject}
             onNew={startNewProject}
+            onImportMidi={handleImportMidi}
             onDelete={removeProject}
             onRename={renameProject}
             onDuplicate={duplicateProject}
