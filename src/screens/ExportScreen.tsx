@@ -4,6 +4,7 @@ import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
 import { downloadProjectMidi } from '../export/midiExport'
 import { downloadProjectZip } from '../export/multiTrackExport'
+import { downloadProjectWav } from '../export/wavExport'
 import type { Project } from '../types/project'
 import { formatKeyLabel } from '../utils/formatProject'
 import { getTotalChordCount, getTotalNoteCount } from '../utils/sections'
@@ -14,6 +15,7 @@ interface ExportScreenProps {
 
 export function ExportScreen({ project }: ExportScreenProps) {
   const [isZipping, setIsZipping] = useState(false)
+  const [isRendering, setIsRendering] = useState(false)
   const [humanize, setHumanize] = useState(false)
   const hasContent = getTotalChordCount(project.sections) > 0 || getTotalNoteCount(project.sections) > 0
 
@@ -23,6 +25,17 @@ export function ExportScreen({ project }: ExportScreenProps) {
       await downloadProjectZip(project, { humanize })
     } finally {
       setIsZipping(false)
+    }
+  }
+
+  async function handleWavExport() {
+    setIsRendering(true)
+    try {
+      await downloadProjectWav(project)
+    } catch {
+      window.alert('Could not render the audio bounce.')
+    } finally {
+      setIsRendering(false)
     }
   }
 
@@ -62,7 +75,7 @@ export function ExportScreen({ project }: ExportScreenProps) {
         <button
           type="button"
           onClick={() => downloadProjectMidi(project, { humanize })}
-          disabled={!hasContent}
+          disabled={!hasContent || isZipping || isRendering}
           className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
         >
           Export MIDI
@@ -70,10 +83,18 @@ export function ExportScreen({ project }: ExportScreenProps) {
         <button
           type="button"
           onClick={handleZipExport}
-          disabled={!hasContent || isZipping}
+          disabled={!hasContent || isZipping || isRendering}
           className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
         >
           {isZipping ? 'Zipping…' : 'Export Multi-track (.zip)'}
+        </button>
+        <button
+          type="button"
+          onClick={handleWavExport}
+          disabled={!hasContent || isZipping || isRendering}
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
+        >
+          {isRendering ? 'Rendering…' : 'Export Audio (.wav)'}
         </button>
       </div>
     </div>
