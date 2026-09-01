@@ -11,7 +11,15 @@ function makeNote(id: string): MelodyNote {
 }
 
 function makeSection(overrides: Partial<Section> = {}): Section {
-  return { id: 's1', name: 'Verse', chords: [makeChord('c1')], melody: [makeNote('n1')], ...overrides }
+  return {
+    id: 's1',
+    name: 'Verse',
+    chords: [makeChord('c1')],
+    melody: [makeNote('n1')],
+    bassline: [makeNote('b1')],
+    harmonyMelody: [makeNote('h1')],
+    ...overrides,
+  }
 }
 
 function makeProject(sections: Section[]): Project {
@@ -23,6 +31,8 @@ function makeProject(sections: Section[]): Project {
     tempo: 100,
     chordInstrument: 'warm',
     melodyInstrument: 'pluck',
+    bassInstrument: 'warm',
+    harmonyInstrument: 'bright',
     createdAt: 0,
     updatedAt: 0,
   }
@@ -35,6 +45,15 @@ describe('cloneSection', () => {
     expect(clone.id).not.toBe(section.id)
     expect(clone.chords[0].id).not.toBe(section.chords[0].id)
     expect(clone.melody[0].id).not.toBe(section.melody[0].id)
+  })
+
+  it('clones the bassline and harmony layers too, not just the lead melody', () => {
+    const section = makeSection()
+    const clone = cloneSection(section)
+    expect(clone.bassline).toHaveLength(1)
+    expect(clone.bassline[0].id).not.toBe(section.bassline[0].id)
+    expect(clone.harmonyMelody).toHaveLength(1)
+    expect(clone.harmonyMelody[0].id).not.toBe(section.harmonyMelody[0].id)
   })
 
   it('defaults to appending "(copy)" to the name', () => {

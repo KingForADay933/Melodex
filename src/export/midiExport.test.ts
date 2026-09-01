@@ -17,26 +17,34 @@ function makeProject(overrides: { chords?: ChordTrackItem[]; melody?: MelodyNote
           { id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 },
           { id: 'n2', pitch: 64, startStep: 2, lengthSteps: 2 },
         ],
+        bassline: [],
+        harmonyMelody: [],
       },
     ],
     tempo: 100,
     chordInstrument: 'warm',
     melodyInstrument: 'pluck',
+    bassInstrument: 'warm',
+    harmonyInstrument: 'bright',
     createdAt: 0,
     updatedAt: 0,
   }
 }
 
+function trackNotes(midi: ReturnType<typeof buildProjectMidi>, name: string) {
+  return midi.tracks.find((t) => t.name === name)?.notes.map((n) => ({ time: n.time, velocity: n.velocity, midi: n.midi }))
+}
+
 function melodyEvents(midi: ReturnType<typeof buildProjectMidi>) {
-  const track = midi.tracks.find((t) => t.name === 'Melody')
-  if (!track) throw new Error('melody track missing')
-  return track.notes.map((n) => ({ time: n.time, velocity: n.velocity, midi: n.midi }))
+  const notes = trackNotes(midi, 'Melody')
+  if (!notes) throw new Error('melody track missing')
+  return notes
 }
 
 function chordEvents(midi: ReturnType<typeof buildProjectMidi>) {
-  const track = midi.tracks.find((t) => t.name === 'Chords')
-  if (!track) throw new Error('chords track missing')
-  return track.notes.map((n) => ({ time: n.time, midi: n.midi }))
+  const notes = trackNotes(midi, 'Chords')
+  if (!notes) throw new Error('chords track missing')
+  return notes
 }
 
 describe('buildProjectMidi humanize', () => {
@@ -90,6 +98,49 @@ describe('buildProjectMidi humanize', () => {
   })
 })
 
+describe('buildProjectMidi bass/harmony tracks', () => {
+  it('omits Bass and Harmony tracks entirely when those layers are empty', () => {
+    const midi = buildProjectMidi(makeProject())
+    expect(midi.tracks.map((t) => t.name)).toEqual(['Chords', 'Melody'])
+  })
+
+  it('adds a Bass track only when the bassline has notes', () => {
+    const project = makeProject({
+      sections: [
+        {
+          id: 's1',
+          name: 'Section 1',
+          chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }],
+          melody: [],
+          bassline: [{ id: 'b1', pitch: 48, startStep: 0, lengthSteps: 2 }],
+          harmonyMelody: [],
+        },
+      ],
+    })
+    const midi = buildProjectMidi(project)
+    expect(midi.tracks.map((t) => t.name)).toEqual(['Chords', 'Melody', 'Bass'])
+    expect(trackNotes(midi, 'Bass')).toHaveLength(1)
+  })
+
+  it('adds a Harmony track only when the harmony line has notes', () => {
+    const project = makeProject({
+      sections: [
+        {
+          id: 's1',
+          name: 'Section 1',
+          chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }],
+          melody: [],
+          bassline: [],
+          harmonyMelody: [{ id: 'h1', pitch: 72, startStep: 0, lengthSteps: 2 }],
+        },
+      ],
+    })
+    const midi = buildProjectMidi(project)
+    expect(midi.tracks.map((t) => t.name)).toEqual(['Chords', 'Melody', 'Harmony'])
+    expect(trackNotes(midi, 'Harmony')).toHaveLength(1)
+  })
+})
+
 describe('buildProjectMidi across multiple sections', () => {
   it('places each section\'s chords and melody at the correct absolute bar/step offset', () => {
     const project = makeProject({
@@ -99,6 +150,8 @@ describe('buildProjectMidi across multiple sections', () => {
           name: 'Verse',
           chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }], // 1 bar
           melody: [{ id: 'n1', pitch: 60, startStep: 0, lengthSteps: 2 }],
+          bassline: [],
+          harmonyMelody: [],
         },
         {
           id: 's2',
@@ -108,6 +161,8 @@ describe('buildProjectMidi across multiple sections', () => {
             { id: 'c3', degree: 5, extension: 'triad', inversion: 0 },
           ], // 2 bars
           melody: [{ id: 'n2', pitch: 67, startStep: 0, lengthSteps: 2 }],
+          bassline: [],
+          harmonyMelody: [],
         },
       ],
     })
@@ -129,13 +184,22 @@ describe('buildProjectMidi across multiple sections', () => {
   it('skips an empty section without inserting a silent bar', () => {
     const project = makeProject({
       sections: [
-        { id: 's1', name: 'Verse', chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }], melody: [] },
-        { id: 's2', name: 'Empty', chords: [], melody: [] },
+        {
+          id: 's1',
+          name: 'Verse',
+          chords: [{ id: 'c1', degree: 1, extension: 'triad', inversion: 0 }],
+          melody: [],
+          bassline: [],
+          harmonyMelody: [],
+        },
+        { id: 's2', name: 'Empty', chords: [], melody: [], bassline: [], harmonyMelody: [] },
         {
           id: 's3',
           name: 'Chorus',
           chords: [{ id: 'c2', degree: 5, extension: 'triad', inversion: 0 }],
           melody: [{ id: 'n1', pitch: 67, startStep: 0, lengthSteps: 2 }],
+          bassline: [],
+          harmonyMelody: [],
         },
       ],
     })

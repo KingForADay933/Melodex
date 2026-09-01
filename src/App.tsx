@@ -75,7 +75,9 @@ function App() {
   })()
 
   const progress = currentStep !== null ? Math.min(1, currentStep / Math.max(songTotalSteps, 1)) : 0
-  const hasContent = project.sections.some((s) => s.chords.length > 0 || s.melody.length > 0)
+  const hasContent = project.sections.some(
+    (s) => s.chords.length > 0 || s.melody.length > 0 || s.bassline.length > 0 || s.harmonyMelody.length > 0,
+  )
   const showMiniTransport = activeScreen === 'chords' || activeScreen === 'melody'
   const history = { canUndo, canRedo, onUndo: undo, onRedo: redo }
 
@@ -194,8 +196,22 @@ function App() {
                 sections: p.sections.map((s) => (s.id === activeSectionId ? { ...s, melody } : s)),
               }))
             }
+            onBasslineChange={(bassline) =>
+              updateActiveProject((p) => ({
+                ...p,
+                sections: p.sections.map((s) => (s.id === activeSectionId ? { ...s, bassline } : s)),
+              }))
+            }
+            onHarmonyMelodyChange={(harmonyMelody) =>
+              updateActiveProject((p) => ({
+                ...p,
+                sections: p.sections.map((s) => (s.id === activeSectionId ? { ...s, harmonyMelody } : s)),
+              }))
+            }
             onInstrumentChange={(melodyInstrument) => updateActiveProject((p) => ({ ...p, melodyInstrument }))}
-            onPreviewNote={(pitch) => previewNote(pitch, project.melodyInstrument)}
+            onBassInstrumentChange={(bassInstrument) => updateActiveProject((p) => ({ ...p, bassInstrument }))}
+            onHarmonyInstrumentChange={(harmonyInstrument) => updateActiveProject((p) => ({ ...p, harmonyInstrument }))}
+            onPreviewNote={(pitch, instrumentId) => previewNote(pitch, instrumentId)}
             currentStep={isPlaying ? sectionRelativeCurrentStep : null}
             {...history}
           />

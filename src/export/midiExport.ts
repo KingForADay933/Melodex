@@ -2,9 +2,9 @@ import { Midi } from '@tonejs/midi'
 import { INSTRUMENT_PRESETS } from '../audio/instruments'
 import { BEATS_PER_BAR, CHORD_OCTAVE, STEPS_PER_BAR } from '../constants'
 import { voiceChordTones } from '../music-theory'
-import type { Project } from '../types/project'
+import type { MelodyNote, Project } from '../types/project'
 import { resolveChord } from '../utils/resolveChord'
-import { flattenChords, flattenMelody } from '../utils/sections'
+import { flattenChords, flattenNotes } from '../utils/sections'
 import { sanitizeFilename, triggerDownload } from './downloadHelpers'
 
 type MidiTrack = ReturnType<Midi['addTrack']>
@@ -55,16 +55,20 @@ function addChordNotes(track: MidiTrack, project: Project, options: ExportOption
   })
 }
 
-function addMelodyNotes(track: MidiTrack, project: Project, options: ExportOptions): void {
-  const stepSize = secondsPerStep(project.tempo)
-  for (const note of flattenMelody(project.sections)) {
+/** Writes an already-flattened note layer (melody, bassline, or harmony
+ * line — all the same shape) to a track. */
+function addNoteLayerNotes(track: MidiTrack, notes: MelodyNote[], tempo: number, baseVelocity: number, options: ExportOptions): void {
+  const stepSize = secondsPerStep(tempo)
+  for (const note of notes) {
     const startTime = note.startStep * stepSize
-    const { time, velocity } = options.humanize ? applyHumanize(startTime, 0.9, stepSize) : { time: startTime, velocity: 0.9 }
+    const { time, velocity } = options.humanize ? applyHumanize(startTime, baseVelocity, stepSize) : { time: startTime, velocity: baseVelocity }
     track.addNote({ midi: note.pitch, time, duration: note.lengthSteps * stepSize, velocity })
   }
 }
 
-/** Two-track MIDI file (chords + melody) combined — the single-file export. */
+/** Combined MIDI file: chords + lead melody always, bassline/harmony only
+ * when that layer actually has notes — an unused layer produces the same
+ * file as before Phase 4, byte-for-byte. */
 export function buildProjectMidi(project: Project, options: ExportOptions = {}): Midi {
   const midi = new Midi()
   midi.header.setTempo(project.tempo)
@@ -77,7 +81,23 @@ export function buildProjectMidi(project: Project, options: ExportOptions = {}):
   const melodyTrack = midi.addTrack()
   melodyTrack.name = 'Melody'
   melodyTrack.instrument.number = INSTRUMENT_PRESETS[project.melodyInstrument].midiProgram
-  addMelodyNotes(melodyTrack, project, options)
+  addNoteLayerNotes(melodyTrack, flattenNotes(project.sections, 'melody'), project.tempo, 0.9, options)
+
+  const bassNotes = flattenNotes(project.sections, 'bassline')
+  if (bassNotes.length > 0) {
+    const bassTrack = midi.addTrack()
+    bassTrack.name = 'Bass'
+    bassTrack.instrument.number = INSTRUMENT_PRESETS[project.bassInstrument].midiProgram
+    addNoteLayerNotes(bassTrack, bassNotes, project.tempo, 0.85, options)
+  }
+
+  const harmonyNotes = flattenNotes(project.sections, 'harmonyMelody')
+  if (harmonyNotes.length > 0) {
+    const harmonyTrack = midi.addTrack()
+    harmonyTrack.name = 'Harmony'
+    harmonyTrack.instrument.number = INSTRUMENT_PRESETS[project.harmonyInstrument].midiProgram
+    addNoteLayerNotes(harmonyTrack, harmonyNotes, project.tempo, 0.75, options)
+  }
 
   return midi
 }
@@ -93,14 +113,36 @@ export function buildChordsOnlyMidi(project: Project, options: ExportOptions = {
   return midi
 }
 
-/** Single-track MIDI file with just the melody — used by the multi-track zip export. */
+/** Single-track MIDI file with just the lead melody — used by the multi-track zip export. */
 export function buildMelodyOnlyMidi(project: Project, options: ExportOptions = {}): Midi {
   const midi = new Midi()
   midi.header.setTempo(project.tempo)
   const track = midi.addTrack()
   track.name = 'Melody'
   track.instrument.number = INSTRUMENT_PRESETS[project.melodyInstrument].midiProgram
-  addMelodyNotes(track, project, options)
+  addNoteLayerNotes(track, flattenNotes(project.sections, 'melody'), project.tempo, 0.9, options)
+  return midi
+}
+
+/** Single-track MIDI file with just the bassline — used by the multi-track zip export. */
+export function buildBassOnlyMidi(project: Project, options: ExportOptions = {}): Midi {
+  const midi = new Midi()
+  midi.header.setTempo(project.tempo)
+  const track = midi.addTrack()
+  track.name = 'Bass'
+  track.instrument.number = INSTRUMENT_PRESETS[project.bassInstrument].midiProgram
+  addNoteLayerNotes(track, flattenNotes(project.sections, 'bassline'), project.tempo, 0.85, options)
+  return midi
+}
+
+/** Single-track MIDI file with just the harmony line — used by the multi-track zip export. */
+export function buildHarmonyOnlyMidi(project: Project, options: ExportOptions = {}): Midi {
+  const midi = new Midi()
+  midi.header.setTempo(project.tempo)
+  const track = midi.addTrack()
+  track.name = 'Harmony'
+  track.instrument.number = INSTRUMENT_PRESETS[project.harmonyInstrument].midiProgram
+  addNoteLayerNotes(track, flattenNotes(project.sections, 'harmonyMelody'), project.tempo, 0.75, options)
   return midi
 }
 
