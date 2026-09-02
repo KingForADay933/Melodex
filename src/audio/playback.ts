@@ -4,7 +4,7 @@ import { secondsPerStep } from '../export/midiExport'
 import { voiceChordTones } from '../music-theory'
 import type { Project } from '../types/project'
 import { resolveChord } from '../utils/resolveChord'
-import { flattenChords, flattenNotes, getProjectTotalSteps } from '../utils/sections'
+import { flattenChords, flattenNotes, getProjectTotalSteps, getSectionBarOffset } from '../utils/sections'
 import type { NoteLayerKey } from '../utils/sections'
 import type { InstrumentId } from './instruments'
 import { INSTRUMENT_PRESETS } from './instruments'
@@ -168,6 +168,17 @@ export function createSynthGraph(): SynthGraph {
   }
 }
 
+/** 'off' plays the whole song once and stops; 'song' loops the whole
+ * flattened timeline; 'section' loops just one section's own bar range
+ * within that timeline. */
+export type LoopMode = 'off' | 'section' | 'song'
+
+export interface LoopOptions {
+  mode: LoopMode
+  /** Required (and only meaningful) when mode is 'section'. */
+  sectionId?: string | null
+}
+
 /**
  * Thin wrapper around Tone.js that turns a Project into scheduled playback.
  * Kept separate from React/UI code so the audio engine can be reused (or
@@ -190,7 +201,7 @@ export class PlaybackEngine {
     this.previewSynth.set({ volume: -8 })
   }
 
-  async play(project: Project): Promise<void> {
+  async play(project: Project, loop: LoopOptions = { mode: 'off' }): Promise<void> {
     await ensureAudioUnlocked()
     this.resetTransport()
 
@@ -205,6 +216,26 @@ export class PlaybackEngine {
     Tone.Transport.bpm.value = project.tempo
     const { chordEvents, chordDuration, noteLayerEvents, totalSteps, stepDuration } = buildScheduleEvents(project)
 
+    // Every layer's Part already spans the whole flattened song at fixed,
+    // absolute times — looping just constrains which slice of that same
+    // timeline the transport's clock keeps re-entering, so nothing about
+    // how the Parts themselves are built or scheduled needs to change.
+    let startOffsetSeconds = 0
+    if (loop.mode === 'song') {
+      Tone.Transport.loop = true
+      Tone.Transport.loopStart = 0
+      Tone.Transport.loopEnd = totalSteps * stepDuration
+    } else if (loop.mode === 'section' && loop.sectionId) {
+      const section = project.sections.find((s) => s.id === loop.sectionId)
+      if (section && section.chords.length > 0) {
+        const barOffset = getSectionBarOffset(project.sections, loop.sectionId)
+        startOffsetSeconds = barOffset * STEPS_PER_BAR * stepDuration
+        Tone.Transport.loop = true
+        Tone.Transport.loopStart = startOffsetSeconds
+        Tone.Transport.loopEnd = (barOffset + section.chords.length) * STEPS_PER_BAR * stepDuration
+      }
+    }
+
     this.chordPart = new Tone.Part((time, event) => {
       this.graph.chordSynth.triggerAttackRelease(event.notes, chordDuration, time)
     }, chordEvents).start(0)
@@ -217,19 +248,22 @@ export class PlaybackEngine {
     }
 
     if (this.onStepChange) {
-      let step = 0
+      // Reads the transport's own clock rather than a manually incremented
+      // counter, so the reported step correctly wraps back down when the
+      // transport loops instead of counting past the loop forever.
       Tone.Transport.scheduleRepeat((time) => {
-        const current = step
-        Tone.Draw.schedule(() => this.onStepChange?.(current), time)
-        step += 1
+        const step = Math.round(Tone.Transport.seconds / stepDuration)
+        Tone.Draw.schedule(() => this.onStepChange?.(step), time)
       }, stepDuration, 0)
     }
 
-    Tone.Transport.scheduleOnce(() => {
-      this.stop()
-    }, totalSteps * stepDuration)
+    if (!Tone.Transport.loop) {
+      Tone.Transport.scheduleOnce(() => {
+        this.stop()
+      }, totalSteps * stepDuration)
+    }
 
-    Tone.Transport.start()
+    Tone.Transport.start(undefined, startOffsetSeconds)
   }
 
   /** Stops the transport and clears scheduled parts without notifying
@@ -238,6 +272,7 @@ export class PlaybackEngine {
   private resetTransport(): void {
     Tone.Transport.stop()
     Tone.Transport.cancel()
+    Tone.Transport.loop = false
     this.chordPart?.dispose()
     this.chordPart = null
     for (const id of NOTE_LAYER_IDS) {

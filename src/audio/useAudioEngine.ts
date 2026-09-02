@@ -3,6 +3,7 @@ import * as Tone from 'tone'
 import type { Project } from '../types/project'
 import type { InstrumentId } from './instruments'
 import { AudioUnlockError, PlaybackEngine } from './playback'
+import type { LoopOptions } from './playback'
 
 /** Whether the browser's AudioContext is unlocked yet. Starts 'locked' on
  * every load — iOS Safari (and other mobile browsers) refuse to produce
@@ -52,11 +53,11 @@ export function useAudioEngine() {
     }
   }, [])
 
-  const play = async (project: Project) => {
+  const play = async (project: Project, loop?: LoopOptions) => {
     if (!engineRef.current) return
     setUnlockState('unlocking')
     try {
-      await engineRef.current.play(project)
+      await engineRef.current.play(project, loop)
       setUnlockState('unlocked')
       setIsPlaying(true)
     } catch (error) {
