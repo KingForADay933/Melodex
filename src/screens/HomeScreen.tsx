@@ -20,6 +20,7 @@ interface HomeScreenProps {
   onRename: (id: string, name: string) => void
   onDuplicate: (id: string) => void
   onReplayOnboarding: () => void
+  onShowShortcuts: () => void
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -40,6 +41,7 @@ export function HomeScreen({
   onRename,
   onDuplicate,
   onReplayOnboarding,
+  onShowShortcuts,
 }: HomeScreenProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
@@ -97,7 +99,7 @@ export function HomeScreen({
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Melodex" />
+      <ScreenHeader title="Melodex" onShowShortcuts={onShowShortcuts} />
 
       <GuidanceTip>
         Guidance is on — hints like this explain each step. Turn them off anytime with the icon

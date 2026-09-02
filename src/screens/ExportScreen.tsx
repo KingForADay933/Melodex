@@ -11,9 +11,10 @@ import { getTotalChordCount, getTotalNoteCount } from '../utils/sections'
 
 interface ExportScreenProps {
   project: Project
+  onShowShortcuts: () => void
 }
 
-export function ExportScreen({ project }: ExportScreenProps) {
+export function ExportScreen({ project, onShowShortcuts }: ExportScreenProps) {
   const [isZipping, setIsZipping] = useState(false)
   const [isRendering, setIsRendering] = useState(false)
   const [humanize, setHumanize] = useState(false)
@@ -41,7 +42,7 @@ export function ExportScreen({ project }: ExportScreenProps) {
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Export" subtitle={formatKeyLabel(project)} />
+      <ScreenHeader title="Export" subtitle={formatKeyLabel(project)} onShowShortcuts={onShowShortcuts} />
       <GuidanceTip>
         A single MIDI file drops straight into any DAW. The zip splits chords and melody into
         separate tracks if you want to produce them independently.

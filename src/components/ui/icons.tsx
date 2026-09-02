@@ -157,6 +157,20 @@ export function UndoIcon({ className }: IconProps) {
   )
 }
 
+export function KeyboardIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <rect x="2.5" y="6" width="19" height="12" rx="1.8" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M6 13.5h.01M9.5 13.5h9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 export function RedoIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
