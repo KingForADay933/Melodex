@@ -98,7 +98,12 @@ export function MelodyScreen({
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Melody" subtitle={formatScreenSubtitle(project, section)} {...history} />
+      <ScreenHeader
+        title="Melody"
+        subtitle={formatScreenSubtitle(project, section)}
+        updatedAt={project.updatedAt}
+        {...history}
+      />
       <GuidanceTip>
         Filled squares are in your key — they&rsquo;ll always sound &ldquo;right.&rdquo; Grey
         diamonds are outside it — use them sparingly for tension.
@@ -142,6 +147,12 @@ export function MelodyScreen({
           </button>
         ))}
       </div>
+
+      {active.notes.length === 0 && (
+        <p className="text-sm text-slate-400">
+          No {active.label} notes yet — tap a cell below to place your first one, or use Auto-fill above.
+        </p>
+      )}
 
       <PianoRoll
         musicKey={project.key}

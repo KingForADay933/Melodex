@@ -42,7 +42,12 @@ export function ChordsScreen({
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Chord Track" subtitle={formatScreenSubtitle(project, section)} {...history} />
+      <ScreenHeader
+        title="Chord Track"
+        subtitle={formatScreenSubtitle(project, section)}
+        updatedAt={project.updatedAt}
+        {...history}
+      />
       <GuidanceTip>
         This is your song&rsquo;s chord sequence. Use the arrows to reorder, or tap a roman
         numeral below to add another chord from your key.

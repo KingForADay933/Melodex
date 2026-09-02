@@ -42,11 +42,22 @@ export function ExportScreen({ project, onShowShortcuts }: ExportScreenProps) {
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Export" subtitle={formatKeyLabel(project)} onShowShortcuts={onShowShortcuts} />
+      <ScreenHeader
+        title="Export"
+        subtitle={formatKeyLabel(project)}
+        updatedAt={project.updatedAt}
+        onShowShortcuts={onShowShortcuts}
+      />
       <GuidanceTip>
         A single MIDI file drops straight into any DAW. The zip splits chords and melody into
         separate tracks if you want to produce them independently.
       </GuidanceTip>
+
+      {!hasContent && (
+        <p className="text-sm text-slate-400">
+          Nothing to export yet — add some chords or melody first, then come back here.
+        </p>
+      )}
 
       <BlueprintCard>
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Project</div>

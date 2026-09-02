@@ -84,7 +84,7 @@ export function SectionsScreen({
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Sections" subtitle={formatKeyLabel(project)} {...history} />
+      <ScreenHeader title="Sections" subtitle={formatKeyLabel(project)} updatedAt={project.updatedAt} {...history} />
       <GuidanceTip>
         A song is these sections chained together, in order — each has its own chord progression
         and melody. Tap a section to select it, then edit its chords or melody from those tabs.
@@ -126,7 +126,7 @@ export function SectionsScreen({
                     {section.melody.length} {section.melody.length === 1 ? 'note' : 'notes'}
                   </div>
                 </div>
-                <div className="flex flex-shrink-0 items-center gap-1">
+                <div className="flex flex-shrink-0 items-center gap-1.5">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -134,7 +134,7 @@ export function SectionsScreen({
                       moveSection(index, -1)
                     }}
                     disabled={index === 0}
-                    className="rounded-md p-1.5 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="rounded-md p-2 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
                     aria-label="Move section earlier"
                   >
                     ‹
@@ -146,7 +146,7 @@ export function SectionsScreen({
                       moveSection(index, 1)
                     }}
                     disabled={index === sections.length - 1}
-                    className="rounded-md p-1.5 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="rounded-md p-2 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
                     aria-label="Move section later"
                   >
                     ›
@@ -157,7 +157,7 @@ export function SectionsScreen({
                       e.stopPropagation()
                       startRename(section)
                     }}
-                    className="rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent"
+                    className="rounded p-2 text-slate-400 hover:bg-accent-soft hover:text-accent"
                     aria-label={`Rename ${section.name}`}
                   >
                     <PencilIcon className="h-3.5 w-3.5" />
@@ -168,7 +168,7 @@ export function SectionsScreen({
                       e.stopPropagation()
                       duplicateSection(section.id)
                     }}
-                    className="rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent"
+                    className="rounded p-2 text-slate-400 hover:bg-accent-soft hover:text-accent"
                     aria-label={`Duplicate ${section.name}`}
                   >
                     <DuplicateIcon className="h-3.5 w-3.5" />
@@ -180,7 +180,7 @@ export function SectionsScreen({
                       removeSection(section.id)
                     }}
                     disabled={sections.length <= 1}
-                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent"
                     aria-label={`Delete ${section.name}`}
                   >
                     ×

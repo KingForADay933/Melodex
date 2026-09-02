@@ -22,7 +22,7 @@ export function KeyScreen({ project, onChange, onTranspose, onContinue, ...histo
 
   return (
     <div className="space-y-5">
-      <ScreenHeader title="Choose a Key" {...history} />
+      <ScreenHeader title="Choose a Key" updatedAt={project.updatedAt} {...history} />
       <GuidanceTip>
         Your key sets which notes and chords sound &ldquo;in tune&rdquo; together. Major keys tend
         to sound bright; minor keys sound moodier.

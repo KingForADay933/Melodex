@@ -6,7 +6,7 @@ import { GuidanceTip } from '../components/ui/GuidanceTip'
 import { DuplicateIcon, PencilIcon, PlusIcon } from '../components/ui/icons'
 import { importMidiFile } from '../import/midiImport'
 import type { Project } from '../types/project'
-import { formatKeyLabel } from '../utils/formatProject'
+import { formatKeyLabel, formatRelativeTime } from '../utils/formatProject'
 import { getTotalChordCount } from '../utils/sections'
 
 const DISCORD_INVITE_URL = 'https://discord.gg/C5mWRfJZh'
@@ -21,15 +21,6 @@ interface HomeScreenProps {
   onDuplicate: (id: string) => void
   onReplayOnboarding: () => void
   onShowShortcuts: () => void
-}
-
-function formatRelativeTime(timestamp: number): string {
-  const diffMinutes = Math.round((Date.now() - timestamp) / 60_000)
-  if (diffMinutes < 1) return 'just now'
-  if (diffMinutes < 60) return `${diffMinutes}m ago`
-  const diffHours = Math.round(diffMinutes / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  return `${Math.round(diffHours / 24)}d ago`
 }
 
 export function HomeScreen({
@@ -173,11 +164,11 @@ export function HomeScreen({
                       </div>
                       <div className="text-xs text-slate-400">Updated {formatRelativeTime(project.updatedAt)}</div>
                     </div>
-                    <div className="flex flex-shrink-0 items-center gap-1">
+                    <div className="flex flex-shrink-0 items-center gap-1.5">
                       <button
                         type="button"
                         onClick={(event) => startRename(project, event)}
-                        className="rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent"
+                        className="rounded p-2 text-slate-400 hover:bg-accent-soft hover:text-accent"
                         aria-label={`Rename ${project.name}`}
                       >
                         <PencilIcon className="h-3.5 w-3.5" />
@@ -185,7 +176,7 @@ export function HomeScreen({
                       <button
                         type="button"
                         onClick={(event) => handleDuplicate(project, event)}
-                        className="rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent"
+                        className="rounded p-2 text-slate-400 hover:bg-accent-soft hover:text-accent"
                         aria-label={`Duplicate ${project.name}`}
                       >
                         <DuplicateIcon className="h-3.5 w-3.5" />
@@ -193,7 +184,7 @@ export function HomeScreen({
                       <button
                         type="button"
                         onClick={(event) => handleDelete(project, event)}
-                        className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                        className="rounded p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"
                         aria-label={`Delete ${project.name}`}
                       >
                         ×
