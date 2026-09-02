@@ -1,4 +1,4 @@
-import { generateArpeggio, generateBassline } from '../melody/arpeggiator'
+import { generateArpeggio, generateBassline, RHYTHM_TEMPLATES } from '../melody/arpeggiator'
 import { COMMON_PROGRESSIONS } from '../music-theory'
 import { createProject } from '../storage/projectStorage'
 import type { Project } from '../types/project'
@@ -15,9 +15,11 @@ export function createExampleProject(): Project {
   const chords = preset.pattern.map((degree) => createChordTrackItem(degree))
   const melody = generateArpeggio(chords, base.key, 'up')
   const bassline = generateBassline(chords, base.key, 'up')
-  // Opposite contour from the lead ('down' vs 'up') so it reads as a
-  // countermelody rather than doubling the melody line note-for-note.
-  const harmonyMelody = generateArpeggio(chords, base.key, 'down')
+  // Same contour as the lead but the Sparse rhythm (2 held notes per bar
+  // instead of 8) so it reads as a slower-moving countermelody underneath
+  // it rather than doubling it note-for-note.
+  const sparseRhythm = RHYTHM_TEMPLATES.find((r) => r.id === 'sparse')!
+  const harmonyMelody = generateArpeggio(chords, base.key, 'up', sparseRhythm)
 
   return {
     ...base,
