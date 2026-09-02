@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
-import { DuplicateIcon, PencilIcon, PlusIcon } from '../components/ui/icons'
+import { DuplicateIcon, PencilIcon, PlayIcon, PlusIcon } from '../components/ui/icons'
 import type { HistoryControls } from '../navigation/types'
 import type { Project, Section } from '../types/project'
 import { cloneSection } from '../utils/cloneProject'
@@ -15,6 +15,10 @@ interface SectionsScreenProps extends HistoryControls {
   activeSectionId: string
   onSelectSection: (id: string) => void
   onSectionsChange: (sections: Section[]) => void
+  /** Id of the section currently sounding, from the mini transport's
+   * whole-song playback — distinct from activeSectionId (the one being
+   * edited), since the two can differ while a song plays through. */
+  playingSectionId: string | null
 }
 
 export function SectionsScreen({
@@ -22,6 +26,7 @@ export function SectionsScreen({
   activeSectionId,
   onSelectSection,
   onSectionsChange,
+  playingSectionId,
   ...history
 }: SectionsScreenProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -105,7 +110,10 @@ export function SectionsScreen({
             }}
             className="w-full cursor-pointer text-left"
           >
-            <BlueprintCard active={section.id === activeSectionId} className="!py-3">
+            <BlueprintCard
+              active={section.id === activeSectionId}
+              className={`!py-3 ${section.id === playingSectionId ? 'ring-2 ring-amber-400' : ''}`}
+            >
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   {renamingId === section.id ? (
@@ -119,7 +127,12 @@ export function SectionsScreen({
                       className="w-full rounded-md border border-accent px-1.5 py-0.5 text-sm font-semibold text-slate-800 focus:outline-none"
                     />
                   ) : (
-                    <div className="truncate font-semibold text-slate-800">{section.name}</div>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <div className="truncate font-semibold text-slate-800">{section.name}</div>
+                      {section.id === playingSectionId && (
+                        <PlayIcon className="h-3 w-3 flex-shrink-0 text-amber-500" />
+                      )}
+                    </div>
                   )}
                   <div className="text-xs text-slate-400">
                     {section.chords.length} {section.chords.length === 1 ? 'chord' : 'chords'} ·{' '}
