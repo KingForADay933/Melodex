@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { LoopMode } from './audio/playback'
 import { useAudioEngine } from './audio/useAudioEngine'
 import { BottomTabBar } from './components/BottomTabBar'
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal'
@@ -29,6 +30,9 @@ function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('home')
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
   const [showShortcuts, setShowShortcuts] = useState(false)
+  // Playback preference, not song data — like activeScreen/activeSectionId,
+  // it's session-only view state and never persisted with the project.
+  const [loopMode, setLoopMode] = useState<LoopMode>('off')
   const {
     projects,
     activeProject: project,
@@ -160,13 +164,13 @@ function App() {
         if (isPlaying) {
           stop()
         } else if (hasContent) {
-          play(project)
+          play(project, { mode: loopMode, sectionId: activeSectionId })
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, showMiniTransport, isPlaying, hasContent, project, play, stop])
+  }, [undo, redo, showMiniTransport, isPlaying, hasContent, project, play, stop, loopMode, activeSectionId])
 
   if (showOnboarding) {
     return <OnboardingScreen onFinish={finishOnboarding} />
@@ -279,9 +283,11 @@ function App() {
           progress={progress}
           disabled={!hasContent}
           unlockState={unlockState}
+          loopMode={loopMode}
+          onLoopModeChange={setLoopMode}
           tempo={project.tempo}
           onTempoChange={(tempo) => updateActiveProject((p) => ({ ...p, tempo }))}
-          onPlay={() => play(project)}
+          onPlay={() => play(project, { mode: loopMode, sectionId: activeSectionId })}
           onStop={stop}
         />
       )}
