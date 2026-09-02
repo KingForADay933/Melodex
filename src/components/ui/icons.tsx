@@ -206,3 +206,17 @@ export function RepeatIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function FlagIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M5 21V4m0 1 3-1.2c1.6-.6 3.4-.6 5 0 1.6.6 3.4.6 5 0L19 3v10l-1 .4c-1.6.6-3.4.6-5 0-1.6-.6-3.4-.6-5 0L5 14"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}

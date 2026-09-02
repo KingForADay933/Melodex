@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatRelativeTime } from '../utils/formatProject'
+import { FeedbackButton } from './ui/FeedbackButton'
 import { GuidanceToggleButton } from './ui/GuidanceToggleButton'
 import { KeyboardIcon, RedoIcon, UndoIcon } from './ui/icons'
 
@@ -76,6 +77,7 @@ export function ScreenHeader({
           >
             <KeyboardIcon className="h-4 w-4" />
           </button>
+          <FeedbackButton />
           <GuidanceToggleButton />
         </div>
         {updatedAt !== undefined && (

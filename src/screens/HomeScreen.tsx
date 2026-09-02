@@ -5,6 +5,7 @@ import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
 import { DuplicateIcon, PencilIcon, PlusIcon } from '../components/ui/icons'
 import { importMidiFile } from '../import/midiImport'
+import { importProjectFile } from '../import/projectImport'
 import type { Project } from '../types/project'
 import { formatKeyLabel, formatRelativeTime } from '../utils/formatProject'
 import { getTotalChordCount } from '../utils/sections'
@@ -15,7 +16,8 @@ interface HomeScreenProps {
   projects: Project[]
   onOpen: (id: string) => void
   onNew: () => void
-  onImportMidi: (project: Project) => void
+  onImportProject: (project: Project) => void
+  onLoadExample: () => void
   onDelete: (id: string) => void
   onRename: (id: string, name: string) => void
   onDuplicate: (id: string) => void
@@ -27,7 +29,8 @@ export function HomeScreen({
   projects,
   onOpen,
   onNew,
-  onImportMidi,
+  onImportProject,
+  onLoadExample,
   onDelete,
   onRename,
   onDuplicate,
@@ -36,8 +39,10 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
-  const [isImporting, setIsImporting] = useState(false)
+  const [isImportingMidi, setIsImportingMidi] = useState(false)
+  const [isImportingJson, setIsImportingJson] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const jsonInputRef = useRef<HTMLInputElement>(null)
 
   function handleDelete(project: Project, event: MouseEvent) {
     event.stopPropagation()
@@ -71,20 +76,35 @@ export function HomeScreen({
     if (event.key === 'Escape') setRenamingId(null)
   }
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleMidiFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = '' // allow re-selecting the same filename after a failed import
     if (!file) return
 
-    setIsImporting(true)
+    setIsImportingMidi(true)
     try {
       const { project, warnings } = await importMidiFile(file)
       if (warnings.length > 0) window.alert(warnings.join('\n'))
-      onImportMidi(project)
+      onImportProject(project)
     } catch {
       window.alert('Could not read this file as a MIDI file.')
     } finally {
-      setIsImporting(false)
+      setIsImportingMidi(false)
+    }
+  }
+
+  async function handleJsonFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // allow re-selecting the same filename after a failed import
+    if (!file) return
+
+    setIsImportingJson(true)
+    try {
+      onImportProject(await importProjectFile(file))
+    } catch {
+      window.alert('Could not read this file as a Melodex project.')
+    } finally {
+      setIsImportingJson(false)
     }
   }
 
@@ -109,16 +129,40 @@ export function HomeScreen({
         ref={fileInputRef}
         type="file"
         accept=".mid,.midi"
-        onChange={handleFileChange}
+        onChange={handleMidiFileChange}
         className="hidden"
       />
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        disabled={isImporting}
+        disabled={isImportingMidi}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
       >
-        {isImporting ? 'Importing…' : 'Import MIDI'}
+        {isImportingMidi ? 'Importing…' : 'Import MIDI'}
+      </button>
+
+      <input
+        ref={jsonInputRef}
+        type="file"
+        accept=".json"
+        onChange={handleJsonFileChange}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => jsonInputRef.current?.click()}
+        disabled={isImportingJson}
+        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
+      >
+        {isImportingJson ? 'Importing…' : 'Import Project (.json)'}
+      </button>
+
+      <button
+        type="button"
+        onClick={onLoadExample}
+        className="w-full rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-500 hover:border-accent hover:text-accent"
+      >
+        Load example song
       </button>
 
       {projects.length > 0 && (
