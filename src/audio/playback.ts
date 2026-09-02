@@ -13,6 +13,17 @@ import { INSTRUMENT_PRESETS } from './instruments'
  * rings for, independent of tempo — it's an audition, not part of a take. */
 const PREVIEW_NOTE_DURATION = 0.25
 
+/** A scoped take's stop/loop-wrap point lands just shy of its boundary
+ * rather than exactly on it. Sections are back-to-back with no gap, so a
+ * section-scoped stop time is otherwise identical to the next section's
+ * first chord's start time — and Tone fires same-tick events in schedule
+ * order rather than favoring a later-added stop, so without this the next
+ * section's first chord audibly sneaks in before playback tears down.
+ * Comfortably smaller than the shortest legitimate note/chord release
+ * margin (at minimum ~10% of a single step, from the *0.9/*0.95 duration
+ * multipliers below), so it never clips a real note's tail. */
+const SECTION_BOUNDARY_EPSILON = 0.001
+
 /** The three melodic layers, each scheduled identically (one synth, one
  * Tone.Part) — chords are scheduled separately since they're structurally
  * different (multiple simultaneous notes per event). `volume` values keep
@@ -168,15 +179,16 @@ export function createSynthGraph(): SynthGraph {
   }
 }
 
-/** 'off' plays the whole song once and stops; 'song' loops the whole
- * flattened timeline; 'section' loops just one section's own bar range
- * within that timeline. */
-export type LoopMode = 'off' | 'section' | 'song'
+/** 'section' plays (or loops) just one section's own bar range within the
+ * flattened timeline; 'song' plays (or loops) the whole thing. */
+export type PlaybackScope = 'section' | 'song'
 
-export interface LoopOptions {
-  mode: LoopMode
-  /** Required (and only meaningful) when mode is 'section'. */
+export interface PlaybackOptions {
+  scope: PlaybackScope
+  /** Required (and only meaningful) when scope is 'section'. */
   sectionId?: string | null
+  /** Whether the chosen scope repeats instead of stopping once it ends. */
+  loop: boolean
 }
 
 /**
@@ -201,7 +213,7 @@ export class PlaybackEngine {
     this.previewSynth.set({ volume: -8 })
   }
 
-  async play(project: Project, loop: LoopOptions = { mode: 'off' }): Promise<void> {
+  async play(project: Project, options: PlaybackOptions = { scope: 'song', loop: false }): Promise<void> {
     await ensureAudioUnlocked()
     this.resetTransport()
 
@@ -217,23 +229,26 @@ export class PlaybackEngine {
     const { chordEvents, chordDuration, noteLayerEvents, totalSteps, stepDuration } = buildScheduleEvents(project)
 
     // Every layer's Part already spans the whole flattened song at fixed,
-    // absolute times — looping just constrains which slice of that same
-    // timeline the transport's clock keeps re-entering, so nothing about
-    // how the Parts themselves are built or scheduled needs to change.
-    let startOffsetSeconds = 0
-    if (loop.mode === 'song') {
-      Tone.Transport.loop = true
-      Tone.Transport.loopStart = 0
-      Tone.Transport.loopEnd = totalSteps * stepDuration
-    } else if (loop.mode === 'section' && loop.sectionId) {
-      const section = project.sections.find((s) => s.id === loop.sectionId)
+    // absolute times, so scoping playback to one section is just a matter
+    // of where the transport starts/stops (or loops) within that same
+    // timeline — nothing about how the Parts themselves are scheduled
+    // needs to change. Falls back to the whole song if sectionId is
+    // missing/stale or the section is empty.
+    let startSeconds = 0
+    let endSeconds = totalSteps * stepDuration
+    if (options.scope === 'section' && options.sectionId) {
+      const section = project.sections.find((s) => s.id === options.sectionId)
       if (section && section.chords.length > 0) {
-        const barOffset = getSectionBarOffset(project.sections, loop.sectionId)
-        startOffsetSeconds = barOffset * STEPS_PER_BAR * stepDuration
-        Tone.Transport.loop = true
-        Tone.Transport.loopStart = startOffsetSeconds
-        Tone.Transport.loopEnd = (barOffset + section.chords.length) * STEPS_PER_BAR * stepDuration
+        const barOffset = getSectionBarOffset(project.sections, options.sectionId)
+        startSeconds = barOffset * STEPS_PER_BAR * stepDuration
+        endSeconds = (barOffset + section.chords.length) * STEPS_PER_BAR * stepDuration
       }
+    }
+
+    if (options.loop) {
+      Tone.Transport.loop = true
+      Tone.Transport.loopStart = startSeconds
+      Tone.Transport.loopEnd = endSeconds - SECTION_BOUNDARY_EPSILON
     }
 
     this.chordPart = new Tone.Part((time, event) => {
@@ -257,13 +272,13 @@ export class PlaybackEngine {
       }, stepDuration, 0)
     }
 
-    if (!Tone.Transport.loop) {
+    if (!options.loop) {
       Tone.Transport.scheduleOnce(() => {
         this.stop()
-      }, totalSteps * stepDuration)
+      }, endSeconds - SECTION_BOUNDARY_EPSILON)
     }
 
-    Tone.Transport.start(undefined, startOffsetSeconds)
+    Tone.Transport.start(undefined, startSeconds)
   }
 
   /** Stops the transport and clears scheduled parts without notifying
