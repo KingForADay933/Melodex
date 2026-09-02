@@ -71,6 +71,21 @@ export function getSectionBarOffset(sections: Section[], sectionId: string): num
   return offset
 }
 
+/** The inverse of getSectionBarOffset: given a song-wide bar index (from
+ * live playback), finds which section is currently sounding. An empty
+ * section takes zero bars in the flattened timeline (see
+ * getSectionTimelineSteps) so it's never matched — playback skips straight
+ * over it, same as flattenChords/flattenNotes already do. */
+export function getSectionIdAtBar(sections: Section[], barIndex: number): string | null {
+  let offset = 0
+  for (const section of sections) {
+    const bars = section.chords.length
+    if (bars > 0 && barIndex >= offset && barIndex < offset + bars) return section.id
+    offset += bars
+  }
+  return null
+}
+
 /** Looks up a section by id, falling back to the first section if the id
  * is stale (e.g. its section was just deleted). */
 export function getActiveSection(project: Project, activeSectionId: string): Section {

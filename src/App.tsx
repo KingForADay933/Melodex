@@ -16,7 +16,13 @@ import { SectionsScreen } from './screens/SectionsScreen'
 import { useProjectManager } from './storage/useProjectManager'
 import type { Project } from './types/project'
 import { consumesSpace } from './utils/consumesSpace'
-import { getActiveSection, getProjectTotalSteps, getSectionBarOffset, getSectionDisplaySteps } from './utils/sections'
+import {
+  getActiveSection,
+  getProjectTotalSteps,
+  getSectionBarOffset,
+  getSectionDisplaySteps,
+  getSectionIdAtBar,
+} from './utils/sections'
 import { transposeProject } from './utils/transpose'
 
 function App() {
@@ -78,12 +84,17 @@ function App() {
     const relative = currentStep - sectionStepOffset
     return relative >= 0 && relative < sectionDisplaySteps ? relative : null
   })()
+  // Which section is currently sounding, for the Sections screen's own
+  // playback highlight — independent of activeSectionId (the section being
+  // edited), since playback always runs the whole song regardless of which
+  // section is on screen.
+  const playingSectionId = songActiveBarIndex !== null ? getSectionIdAtBar(project.sections, songActiveBarIndex) : null
 
   const progress = currentStep !== null ? Math.min(1, currentStep / Math.max(songTotalSteps, 1)) : 0
   const hasContent = project.sections.some(
     (s) => s.chords.length > 0 || s.melody.length > 0 || s.bassline.length > 0 || s.harmonyMelody.length > 0,
   )
-  const showMiniTransport = activeScreen === 'chords' || activeScreen === 'melody'
+  const showMiniTransport = activeScreen === 'sections' || activeScreen === 'chords' || activeScreen === 'melody'
   const history = { canUndo, canRedo, onUndo: undo, onRedo: redo, onShowShortcuts: () => setShowShortcuts(true) }
 
   function openProject(id: string) {
@@ -196,6 +207,7 @@ function App() {
             activeSectionId={activeSectionId}
             onSelectSection={setActiveSectionId}
             onSectionsChange={(sections) => updateActiveProject((p) => ({ ...p, sections }))}
+            playingSectionId={isPlaying ? playingSectionId : null}
             {...history}
           />
         )}
