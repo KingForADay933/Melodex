@@ -6,4 +6,5 @@ export interface HistoryControls {
   canRedo: boolean
   onUndo: () => void
   onRedo: () => void
+  onShowShortcuts: () => void
 }

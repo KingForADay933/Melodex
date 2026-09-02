@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAudioEngine } from './audio/useAudioEngine'
 import { BottomTabBar } from './components/BottomTabBar'
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal'
 import { MiniTransportBar } from './components/MiniTransportBar'
 import { STEPS_PER_BAR } from './constants'
 import type { Screen } from './navigation/types'
@@ -14,12 +15,14 @@ import { OnboardingScreen } from './screens/OnboardingScreen'
 import { SectionsScreen } from './screens/SectionsScreen'
 import { useProjectManager } from './storage/useProjectManager'
 import type { Project } from './types/project'
+import { consumesSpace } from './utils/consumesSpace'
 import { getActiveSection, getProjectTotalSteps, getSectionBarOffset, getSectionDisplaySteps } from './utils/sections'
 import { transposeProject } from './utils/transpose'
 
 function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('home')
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const {
     projects,
     activeProject: project,
@@ -81,7 +84,7 @@ function App() {
     (s) => s.chords.length > 0 || s.melody.length > 0 || s.bassline.length > 0 || s.harmonyMelody.length > 0,
   )
   const showMiniTransport = activeScreen === 'chords' || activeScreen === 'melody'
-  const history = { canUndo, canRedo, onUndo: undo, onRedo: redo }
+  const history = { canUndo, canRedo, onUndo: undo, onRedo: redo, onShowShortcuts: () => setShowShortcuts(true) }
 
   function openProject(id: string) {
     switchToProject(id)
@@ -103,29 +106,56 @@ function App() {
     setShowOnboarding(false)
   }
 
-  // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or +Y) for undo/redo, skipped while
-  // typing so it doesn't fight a text field's own undo (e.g. renaming).
+  // Global shortcuts, skipped while typing so they don't fight a text
+  // field's own behavior (e.g. renaming, or a literal "?"/space character):
+  // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or +Y) for undo/redo, "?" to open the
+  // shortcuts sheet, and Space to play/stop (only where the mini transport
+  // is visible, and only when no other focused control already treats
+  // Space as its own activation key — see consumesSpace).
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
-      if (isTyping || !(event.ctrlKey || event.metaKey)) return
+      if (isTyping) return
 
-      const key = event.key.toLowerCase()
-      if (key === 'z' && event.shiftKey) {
+      if (event.ctrlKey || event.metaKey) {
+        const key = event.key.toLowerCase()
+        if (key === 'z' && event.shiftKey) {
+          event.preventDefault()
+          redo()
+          return
+        }
+        if (key === 'z') {
+          event.preventDefault()
+          undo()
+          return
+        }
+        if (key === 'y') {
+          event.preventDefault()
+          redo()
+          return
+        }
+        return
+      }
+
+      if (event.key === '?') {
         event.preventDefault()
-        redo()
-      } else if (key === 'z') {
+        setShowShortcuts(true)
+        return
+      }
+
+      if (event.code === 'Space' && showMiniTransport && !consumesSpace(target)) {
         event.preventDefault()
-        undo()
-      } else if (key === 'y') {
-        event.preventDefault()
-        redo()
+        if (isPlaying) {
+          stop()
+        } else if (hasContent) {
+          play(project)
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo])
+  }, [undo, redo, showMiniTransport, isPlaying, hasContent, project, play, stop])
 
   if (showOnboarding) {
     return <OnboardingScreen onFinish={finishOnboarding} />
@@ -144,6 +174,7 @@ function App() {
             onRename={renameProject}
             onDuplicate={duplicateProject}
             onReplayOnboarding={() => setShowOnboarding(true)}
+            onShowShortcuts={() => setShowShortcuts(true)}
           />
         )}
 
@@ -225,7 +256,9 @@ function App() {
           />
         )}
 
-        {activeScreen === 'export' && <ExportScreen key={project.id} project={project} />}
+        {activeScreen === 'export' && (
+          <ExportScreen key={project.id} project={project} onShowShortcuts={() => setShowShortcuts(true)} />
+        )}
       </div>
 
       {showMiniTransport && (
@@ -241,6 +274,7 @@ function App() {
       )}
 
       <BottomTabBar active={activeScreen} onNavigate={setActiveScreen} />
+      <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }
