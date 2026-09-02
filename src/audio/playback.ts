@@ -43,6 +43,25 @@ function midiToNoteName(midi: number): string {
   return Tone.Frequency(midi, 'midi').toNote()
 }
 
+/** Thrown when `Tone.start()` resolves but the AudioContext still isn't
+ * running — iOS Safari can silently refuse to unlock audio (Low Power Mode,
+ * rare autoplay-policy edge cases). Lets callers tell this apart from any
+ * other failure and show a real "audio is blocked" message instead of just
+ * staying silent. */
+export class AudioUnlockError extends Error {
+  constructor() {
+    super('Audio context could not be unlocked')
+    this.name = 'AudioUnlockError'
+  }
+}
+
+async function ensureAudioUnlocked(): Promise<void> {
+  await Tone.start()
+  if (Tone.getContext().state !== 'running') {
+    throw new AudioUnlockError()
+  }
+}
+
 export function applyInstrument(synth: Tone.PolySynth<Tone.MonoSynth>, instrumentId: InstrumentId): void {
   const preset = INSTRUMENT_PRESETS[instrumentId]
   synth.set({
@@ -172,7 +191,7 @@ export class PlaybackEngine {
   }
 
   async play(project: Project): Promise<void> {
-    await Tone.start()
+    await ensureAudioUnlocked()
     this.resetTransport()
 
     const flatChords = flattenChords(project.sections)
@@ -237,7 +256,7 @@ export class PlaybackEngine {
    * or a row's key label. Independent of the transport, so it works
    * whether or not anything is currently playing. */
   async previewNote(pitch: number, instrumentId: InstrumentId): Promise<void> {
-    await Tone.start()
+    await ensureAudioUnlocked()
     applyInstrument(this.previewSynth, instrumentId)
     this.previewSynth.triggerAttackRelease(midiToNoteName(pitch), PREVIEW_NOTE_DURATION)
   }

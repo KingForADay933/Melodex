@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { MELODY_MAX_MIDI, MELODY_MIN_MIDI, STEPS_PER_BAR } from '../constants'
 import { isInScale, noteName } from '../music-theory'
@@ -30,13 +30,20 @@ const DEFAULT_NOTE_LENGTH_STEPS = 2
 // Column width is adjustable (zoom); row height stays fixed — there's no
 // pitch/vertical zoom, only time/horizontal.
 const ZOOM_LEVELS = [16, 22, 32, 44]
-const DEFAULT_ZOOM_INDEX = 1 // 22px, today's fixed width
+// 32px — some horizontal scrolling on a phone screen is unavoidable at any
+// zoom level, so the default favors touch accuracy (bigger cells, easier to
+// hit the resize grip) over fitting more of the section on screen at once.
+const DEFAULT_ZOOM_INDEX = 2
 const CELL_HEIGHT = 18
 const HEADER_HEIGHT = 22
-const RESIZE_HANDLE_WIDTH = 8
+// Width of the sticky key-label column — shared by the grid layout, the
+// playhead line, and the scroll-follow math below, so it can't drift out of
+// sync between them.
+const KEY_LABEL_WIDTH = 56
 // Pointer movement (px) before a press-on-a-note is treated as a drag rather
-// than a click-to-remove.
-const DRAG_THRESHOLD_PX = 4
+// than a click-to-remove. A bit more forgiving than a mouse would need,
+// since a finger is less precise than a cursor.
+const DRAG_THRESHOLD_PX = 6
 // Drag-move/resize rounds to whole-step increments by default (1/16 note);
 // selecting a coarser snap value rounds to multiples of it instead.
 const SNAP_OPTIONS: { steps: number; label: string }[] = [
@@ -109,10 +116,14 @@ export function PianoRoll({
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX)
   const [snapSteps, setSnapSteps] = useState(DEFAULT_SNAP_STEPS)
   const cellWidth = ZOOM_LEVELS[zoomIndex]
+  // Scales with zoom so the grip stays easy to hit on touch without eating
+  // too much of the adjacent move-drag area at low zoom levels.
+  const resizeHandleWidth = Math.max(8, Math.min(16, cellWidth * 0.45))
   // Set (synchronously, ahead of React state) as soon as a press-on-a-note
   // crosses the drag threshold, so the synthetic click that follows
   // pointerup on the same interaction can be told apart from a real click.
   const didDragRef = useRef(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const pitches = useMemo(() => {
     const result: number[] = []
@@ -255,6 +266,24 @@ export function PianoRoll({
     window.addEventListener('pointerup', handleUp)
   }
 
+  // Keeps the moving playhead in view during playback: only nudges
+  // scrollLeft when the playhead is actually about to leave the visible
+  // window, rather than on every single step, so it doesn't fight a smooth
+  // scroll against itself many times a second at typical tempos.
+  useEffect(() => {
+    if (currentStep === null || !scrollRef.current) return
+    const container = scrollRef.current
+    const playheadX = KEY_LABEL_WIDTH + currentStep * cellWidth
+    const visibleLeft = container.scrollLeft + KEY_LABEL_WIDTH
+    const visibleRight = container.scrollLeft + container.clientWidth
+    const margin = cellWidth * 2
+    if (playheadX < visibleLeft) {
+      container.scrollTo({ left: Math.max(0, playheadX - margin), behavior: 'smooth' })
+    } else if (playheadX > visibleRight - margin) {
+      container.scrollTo({ left: playheadX - container.clientWidth + margin, behavior: 'smooth' })
+    }
+  }, [currentStep, cellWidth])
+
   return (
     <section className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -319,8 +348,17 @@ export function PianoRoll({
         </div>
       </div>
 
-      <div className="max-h-96 select-none overflow-auto rounded-2xl border border-slate-200 bg-white">
-        <div className="grid" style={{ gridTemplateColumns: `56px repeat(${totalSteps}, ${cellWidth}px)` }}>
+      <div ref={scrollRef} className="max-h-96 select-none overflow-auto rounded-2xl border border-slate-200 bg-white">
+        <div
+          className="relative grid"
+          style={{ gridTemplateColumns: `${KEY_LABEL_WIDTH}px repeat(${totalSteps}, ${cellWidth}px)` }}
+        >
+          {currentStep !== null && (
+            <div
+              className="pointer-events-none absolute inset-y-0 z-[15] w-0.5 bg-amber-500"
+              style={{ left: KEY_LABEL_WIDTH + currentStep * cellWidth }}
+            />
+          )}
           <div className="contents">
             <div
               className="sticky left-0 top-0 z-30 border-r border-b border-slate-200 bg-slate-50"
@@ -424,7 +462,7 @@ export function PianoRoll({
                           onPointerDown={(event) => startResize(note, event)}
                           onClick={(event) => event.stopPropagation()}
                           className="absolute inset-y-0 right-0 z-10 flex cursor-ew-resize items-center justify-end"
-                          style={{ width: RESIZE_HANDLE_WIDTH, touchAction: 'none' }}
+                          style={{ width: resizeHandleWidth, touchAction: 'none' }}
                         >
                           <span className="h-3/5 w-[3px] rounded-full bg-accent" />
                         </div>

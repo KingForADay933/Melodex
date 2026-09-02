@@ -66,7 +66,7 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded text-slate-400 hover:bg-accent-soft hover:text-accent"
             >
               ×
             </button>

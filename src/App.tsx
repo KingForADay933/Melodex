@@ -38,7 +38,7 @@ function App() {
     duplicateProject,
     removeProject,
   } = useProjectManager()
-  const { play, stop, previewNote, isPlaying, currentStep } = useAudioEngine()
+  const { play, stop, previewNote, isPlaying, currentStep, unlockState } = useAudioEngine()
 
   // Which section Chords/Melody are currently editing — view state, not
   // routed through updateActiveProject, so (like activeScreen) it stays
@@ -266,6 +266,7 @@ function App() {
           isPlaying={isPlaying}
           progress={progress}
           disabled={!hasContent}
+          unlockState={unlockState}
           tempo={project.tempo}
           onTempoChange={(tempo) => updateActiveProject((p) => ({ ...p, tempo }))}
           onPlay={() => play(project)}

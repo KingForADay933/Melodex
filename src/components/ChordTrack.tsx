@@ -96,12 +96,12 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
                       {item.inversion !== 0 && ` · ${inversionLabel(item.inversion)} inv.`}
                     </div>
                   </button>
-                  <div className="flex flex-shrink-0 items-center gap-1">
+                  <div className="flex flex-shrink-0 items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => moveChord(index, -1)}
                       disabled={index === 0}
-                      className="rounded-md p-1.5 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+                      className="rounded-md p-2 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
                       aria-label="Move chord earlier"
                     >
                       ‹
@@ -110,7 +110,7 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
                       type="button"
                       onClick={() => moveChord(index, 1)}
                       disabled={index === chords.length - 1}
-                      className="rounded-md p-1.5 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
+                      className="rounded-md p-2 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent"
                       aria-label="Move chord later"
                     >
                       ›
@@ -118,7 +118,7 @@ export function ChordTrack({ musicKey, chords, onChange, activeIndex = null }: C
                     <button
                       type="button"
                       onClick={() => removeChord(item.id)}
-                      className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                      className="rounded-md p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"
                       aria-label="Remove chord"
                     >
                       ×

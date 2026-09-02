@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { AudioUnlockState } from '../audio/useAudioEngine'
 import { BPM_COARSE_STEP, BPM_FINE_STEP, MAX_BPM, MIN_BPM } from '../constants'
 import { PlayIcon, StopIcon } from './ui/icons'
 
@@ -6,6 +7,7 @@ interface MiniTransportBarProps {
   isPlaying: boolean
   progress: number
   disabled: boolean
+  unlockState: AudioUnlockState
   tempo: number
   onTempoChange: (tempo: number) => void
   onPlay: () => void
@@ -17,7 +19,7 @@ function clampTempo(value: number): number {
 }
 
 const stepperButtonClass =
-  'rounded p-1 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent'
+  'rounded p-2 text-slate-400 hover:bg-accent-soft hover:text-accent disabled:opacity-30 disabled:hover:bg-transparent'
 
 /** Persistent play/stop preview bar shown above the tab bar on the Chords
  * and Melody screens, so playback isn't tucked behind a dedicated tab.
@@ -29,6 +31,7 @@ export function MiniTransportBar({
   isPlaying,
   progress,
   disabled,
+  unlockState,
   tempo,
   onTempoChange,
   onPlay,
@@ -56,13 +59,18 @@ export function MiniTransportBar({
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-16 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
+    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
+      {unlockState === 'failed' && (
+        <p className="bg-amber-50 px-4 py-1.5 text-center text-xs font-medium text-amber-700">
+          Audio blocked — check Silent Mode / Low Power Mode and try Play again.
+        </p>
+      )}
       <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-2.5">
         <button
           type="button"
           onClick={isPlaying ? onStop : onPlay}
           disabled={disabled}
-          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-40"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-40"
           aria-label={isPlaying ? 'Stop' : 'Play'}
         >
           {isPlaying ? <StopIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
@@ -73,7 +81,7 @@ export function MiniTransportBar({
             style={{ width: `${progress * 100}%` }}
           />
         </div>
-        <div className="flex flex-shrink-0 items-center gap-0.5">
+        <div className="flex flex-shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={() => step(-BPM_COARSE_STEP)}
@@ -115,7 +123,7 @@ export function MiniTransportBar({
               type="button"
               onClick={startEditing}
               disabled={isPlaying}
-              className="w-14 rounded py-0.5 text-center text-xs text-slate-500 hover:bg-accent-soft disabled:hover:bg-transparent"
+              className="w-14 rounded py-1.5 text-center text-xs text-slate-500 hover:bg-accent-soft disabled:hover:bg-transparent"
               aria-label="Edit tempo"
             >
               {tempo} BPM
