@@ -18,8 +18,10 @@ type StoredSection = Omit<Section, 'bassline' | 'harmonyMelody'> & Partial<Pick<
 /** Raw JSON from localStorage may be current-shape, or saved by an earlier
  * version of the app — pre-Phase-3 projects have `chords`/`melody` at the
  * top level instead of `sections`, and pre-Phase-2 saves lack tempo/
- * instrument fields entirely. */
-type StoredProject = Omit<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument' | 'bassInstrument' | 'harmonyInstrument'> &
+ * instrument fields entirely. Exported so a user-supplied JSON project file
+ * (see src/import/projectImport.ts) gets the same schema-drift tolerance as
+ * our own localStorage data, instead of a second copy of these defaults. */
+export type StoredProject = Omit<Project, 'sections' | 'tempo' | 'chordInstrument' | 'melodyInstrument' | 'bassInstrument' | 'harmonyInstrument'> &
   Partial<Pick<Project, 'tempo' | 'chordInstrument' | 'melodyInstrument' | 'bassInstrument' | 'harmonyInstrument'>> & {
     sections?: StoredSection[]
     chords?: ChordTrackItem[]
@@ -51,7 +53,7 @@ function normalizeSection(section: StoredSection): Section {
  * crashing on missing fields. A pre-Phase-3 project (flat `chords`/
  * `melody`, no `sections`) is wrapped into a single implicit "Section 1"
  * rather than migrated destructively. */
-function normalizeProject(project: StoredProject): Project {
+export function normalizeProject(project: StoredProject): Project {
   const { chords: legacyChords, melody: legacyMelody, sections, ...rest } = project
   return {
     ...rest,

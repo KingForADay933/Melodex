@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { PlaybackScope } from './audio/playback'
 import { useAudioEngine } from './audio/useAudioEngine'
+import { useWakeLock } from './audio/useWakeLock'
 import { BottomTabBar } from './components/BottomTabBar'
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal'
 import { MiniTransportBar } from './components/MiniTransportBar'
@@ -17,6 +18,7 @@ import { SectionsScreen } from './screens/SectionsScreen'
 import { useProjectManager } from './storage/useProjectManager'
 import type { Project } from './types/project'
 import { consumesSpace } from './utils/consumesSpace'
+import { createExampleProject } from './utils/createExampleProject'
 import {
   getActiveSection,
   getProjectTotalSteps,
@@ -51,6 +53,7 @@ function App() {
     removeProject,
   } = useProjectManager()
   const { play, stop, previewNote, isPlaying, currentStep, unlockState } = useAudioEngine()
+  useWakeLock(isPlaying)
 
   // Which section Chords/Melody are currently editing — view state, not
   // routed through updateActiveProject, so (like activeScreen) it stays
@@ -113,9 +116,14 @@ function App() {
     setActiveScreen('key')
   }
 
-  function handleImportMidi(imported: Project) {
+  function handleImportProject(imported: Project) {
     importProject(imported)
     setActiveScreen('key')
+  }
+
+  function handleLoadExample() {
+    importProject(createExampleProject())
+    setActiveScreen('chords')
   }
 
   function finishOnboarding() {
@@ -198,7 +206,8 @@ function App() {
             projects={projects}
             onOpen={openProject}
             onNew={startNewProject}
-            onImportMidi={handleImportMidi}
+            onImportProject={handleImportProject}
+            onLoadExample={handleLoadExample}
             onDelete={removeProject}
             onRename={renameProject}
             onDuplicate={duplicateProject}

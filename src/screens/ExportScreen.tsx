@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ScreenHeader } from '../components/ScreenHeader'
 import { BlueprintCard } from '../components/ui/BlueprintCard'
 import { GuidanceTip } from '../components/ui/GuidanceTip'
+import { sanitizeFilename, triggerDownload } from '../export/downloadHelpers'
 import { downloadProjectMidi } from '../export/midiExport'
 import { downloadProjectZip } from '../export/multiTrackExport'
 import { downloadProjectWav } from '../export/wavExport'
@@ -38,6 +39,11 @@ export function ExportScreen({ project, onShowShortcuts }: ExportScreenProps) {
     } finally {
       setIsRendering(false)
     }
+  }
+
+  function handleJsonExport() {
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' })
+    triggerDownload(blob, `${sanitizeFilename(project.name)}.json`)
   }
 
   return (
@@ -107,6 +113,16 @@ export function ExportScreen({ project, onShowShortcuts }: ExportScreenProps) {
           className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft disabled:opacity-40"
         >
           {isRendering ? 'Rendering…' : 'Export Audio (.wav)'}
+        </button>
+        {/* Not gated on hasContent like the musical exports above — an
+            "empty project" state is sometimes exactly the bug being
+            reported, so this needs to work even then. */}
+        <button
+          type="button"
+          onClick={handleJsonExport}
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-accent-soft"
+        >
+          Export Project (.json)
         </button>
       </div>
     </div>
