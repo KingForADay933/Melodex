@@ -206,29 +206,3 @@ export function RepeatIcon({ className }: IconProps) {
     </svg>
   )
 }
-
-/** Loops just the currently selected section — same loop frame as
- * RepeatIcon, with a small "1" to mark it as single-section. */
-export function RepeatOneIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
-      <path
-        d="M4 7h13a3 3 0 0 1 3 3v2M20 17H7a3 3 0 0 1-3-3v-2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="m14 4 3 3-3 3M10 20l-3-3 3-3"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <text x="12" y="14.5" textAnchor="middle" fontSize="7" fontWeight="700" fill="currentColor" stroke="none">
-        1
-      </text>
-    </svg>
-  )
-}

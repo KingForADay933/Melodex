@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { LoopMode } from './audio/playback'
+import type { PlaybackScope } from './audio/playback'
 import { useAudioEngine } from './audio/useAudioEngine'
 import { BottomTabBar } from './components/BottomTabBar'
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal'
@@ -30,9 +30,11 @@ function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('home')
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding())
   const [showShortcuts, setShowShortcuts] = useState(false)
-  // Playback preference, not song data — like activeScreen/activeSectionId,
-  // it's session-only view state and never persisted with the project.
-  const [loopMode, setLoopMode] = useState<LoopMode>('off')
+  // Playback preferences, not song data — like activeScreen/activeSectionId,
+  // they're session-only view state and never persisted with the project.
+  // Defaults preserve the original always-whole-song, play-once behavior.
+  const [playbackScope, setPlaybackScope] = useState<PlaybackScope>('song')
+  const [loopEnabled, setLoopEnabled] = useState(false)
   const {
     projects,
     activeProject: project,
@@ -164,13 +166,25 @@ function App() {
         if (isPlaying) {
           stop()
         } else if (hasContent) {
-          play(project, { mode: loopMode, sectionId: activeSectionId })
+          play(project, { scope: playbackScope, sectionId: activeSectionId, loop: loopEnabled })
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, showMiniTransport, isPlaying, hasContent, project, play, stop, loopMode, activeSectionId])
+  }, [
+    undo,
+    redo,
+    showMiniTransport,
+    isPlaying,
+    hasContent,
+    project,
+    play,
+    stop,
+    playbackScope,
+    loopEnabled,
+    activeSectionId,
+  ])
 
   if (showOnboarding) {
     return <OnboardingScreen onFinish={finishOnboarding} />
@@ -178,7 +192,7 @@ function App() {
 
   return (
     <div className="min-h-svh bg-surface">
-      <div className={`mx-auto max-w-3xl px-4 pt-6 sm:pt-10 ${showMiniTransport ? 'pb-40' : 'pb-24'}`}>
+      <div className={`mx-auto max-w-3xl px-4 pt-6 sm:pt-10 ${showMiniTransport ? 'pb-52' : 'pb-24'}`}>
         {activeScreen === 'home' && (
           <HomeScreen
             projects={projects}
@@ -283,11 +297,13 @@ function App() {
           progress={progress}
           disabled={!hasContent}
           unlockState={unlockState}
-          loopMode={loopMode}
-          onLoopModeChange={setLoopMode}
+          playbackScope={playbackScope}
+          onPlaybackScopeChange={setPlaybackScope}
+          loopEnabled={loopEnabled}
+          onLoopEnabledChange={setLoopEnabled}
           tempo={project.tempo}
           onTempoChange={(tempo) => updateActiveProject((p) => ({ ...p, tempo }))}
-          onPlay={() => play(project, { mode: loopMode, sectionId: activeSectionId })}
+          onPlay={() => play(project, { scope: playbackScope, sectionId: activeSectionId, loop: loopEnabled })}
           onStop={stop}
         />
       )}
